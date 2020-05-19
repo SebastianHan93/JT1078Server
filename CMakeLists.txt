@@ -3,8 +3,8 @@ project(JT1078Server)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(INC_DIR /usr/include/ /usr/local/ffmpeg/include)
-set(LINK_DIR /usr/lib/lib/ /usr/local/ffmpeg/lib)
+set(INC_DIR /usr/include/ /usr/local/ffmpeg/include /home/hc/muduo/build/release-install-cpp11/include)
+set(LINK_DIR /usr/lib/lib/ /usr/local/ffmpeg/lib /home/hc/muduo/build/release-install-cpp11/lib)
 
 include_directories(${INC_DIR})
 link_directories(${LINK_DIR})
