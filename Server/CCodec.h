@@ -6,21 +6,39 @@
 #define JT1078SERVER_CCODEC_H
 #include <iostream>
 #include <memory>
-#include "CDecoder.h"
 
-class CCodec
-{
+class CCodec {
 public:
-    CCodec() = default;
-    ~CCodec()= default;
+    CCodec();
+
+    ~CCodec();
 
 public:
-    void DecodeG711A2Pcm(char * cInBuf,int nInBufLen,char * cOutBuf,int *nOutBufLen);
-    void DecodeG711U2Pcm(char * cInBuf,int nInBufLen,char * cOutBuf,int *nOutBufLen);
-    void DecodeAdpcm2Pcm(char * cInBuf,int nInBufLen,char * cOutBuf,int *nOutBufLen);
+    enum AUDIO_CODING_TYPE {
+        eG711A,
+        eG711U,
+        eAdpcm,
+        eUnSupport,
+    };
+    typedef struct {
+        char *m_pOutBuf;
+        int m_nOutBufLen;
+        AUDIO_CODING_TYPE m_eType;
+    } DECODE_RESULT;
 
+    DECODE_RESULT &DecodeAudio(char *pInBuf, int nInBufLen, AUDIO_CODING_TYPE eType);
+
+public:
+    DECODE_RESULT m_iResult;
+
+private:
+    void __DecodeG711A2Pcm(char *pInBuf, int nInBufLen);
+
+    void __DecodeG711U2Pcm(char *pInBuf, int nInBufLen);
+
+    void __DecodeAdpcm2Pcm(char *pInBuf, int nInBufLen);
 };
 
-
-
+typedef CCodec::DECODE_RESULT DECODE_RESULT;
+typedef CCodec::AUDIO_CODING_TYPE AUDIO_CODING_TYPE;
 #endif //JT1078SERVER_CCODEC_H

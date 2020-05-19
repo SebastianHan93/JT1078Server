@@ -13,7 +13,6 @@
 #include "CRtmpStream.h"
 #include "CCodec.h"
 
-
 class CDecoder : muduo::copyable,public std::enable_shared_from_this<CDecoder>
 {
 public:
@@ -59,7 +58,6 @@ public:
         eG711A,
         eG711U,
         eAdpcm,
-        eAAC,
         eH264,
         eUnSupport,
     };
@@ -85,6 +83,8 @@ public:
     std::string GetUrl() const;
     AV_CODING_TYPE GetAVCodingType() const;
 
+    DECODE_RESULT &DecodeAudio(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType);
+
 public:
     static const int sm_nFirstReceiveBytes;
 
@@ -106,8 +106,8 @@ private:
     unsigned int  m_iRecvLen;
     JT_1078_HEADER m_iHeader;
     std::string m_sData;
-    CRtmpStream * m_pRtmpStream;
-    CCodec m_iCodec;
+    CRtmpStream *m_pRtmpStream;
+    CCodec *m_pCodec;
 
 };
 typedef std::shared_ptr<CDecoder> DECODER_PTR;

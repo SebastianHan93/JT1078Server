@@ -223,6 +223,7 @@ int CRtmpStream::add_stream(OutputStream *ost, AVCodec **codec, enum AVCodecID c
             ost->st->time_base = v_time_base;
             c->time_base = ost->st->time_base;
             c->codec_tag = 0;
+
 //            c->rc_buffer_size = 20000;
 
             break;

@@ -14,16 +14,17 @@ using namespace muduo::net;
 const int CDecoder::sm_nFirstReceiveBytes = 16;
 
 CDecoder::CDecoder()
-    :m_sData(),
-     m_iRecvLen(sm_nFirstReceiveBytes),
-     m_eCurrentStat(eInit),
-     m_eSubMarke(eFirst),
-     m_eDataType(eVideoI),
-     m_eSkip(eSkipNon),
-     m_eErr(eNoError),
-     m_iHeader(),
-     m_pRtmpStream(new CRtmpStream()),
-     m_eCodingType(eH264)
+    : m_sData(),
+      m_iRecvLen(sm_nFirstReceiveBytes),
+      m_eCurrentStat(eInit),
+      m_eSubMarke(eFirst),
+      m_eDataType(eVideoI),
+      m_eSkip(eSkipNon),
+      m_eErr(eNoError),
+      m_iHeader(),
+      m_pRtmpStream(new CRtmpStream()),
+      m_eCodingType(eH264),
+      m_pCodec(new CCodec())
 {
 
 }
@@ -31,6 +32,7 @@ CDecoder::CDecoder()
 CDecoder::~CDecoder()
 {
     delete m_pRtmpStream;
+    delete m_pCodec;
 }
 
 bool CDecoder::Decode(muduo::net::Buffer* pBuf, muduo::Timestamp iReceiveTime)
@@ -399,9 +401,6 @@ void CDecoder::__SetAVCodingType()
         case 7:
             m_eCodingType = eG711U;
             break;
-        case 19:
-            m_eCodingType = eAAC;
-            break;
         case 26:
             m_eCodingType = eAdpcm;
             break;
@@ -412,4 +411,23 @@ void CDecoder::__SetAVCodingType()
             m_eCodingType = eUnSupport;
             break;
     }
+}
+
+DECODE_RESULT &CDecoder::DecodeAudio(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType) {
+    AUDIO_CODING_TYPE eAudioType;
+    switch (eType) {
+        case eG711A:
+            eAudioType = AUDIO_CODING_TYPE::eG711A;
+            break;
+        case eG711U:
+            eAudioType = AUDIO_CODING_TYPE::eG711U;
+            break;
+        case eAdpcm:
+            eAudioType = AUDIO_CODING_TYPE::eAdpcm;
+            break;
+        default:
+            eAudioType = AUDIO_CODING_TYPE::eUnSupport;
+    }
+    DECODE_RESULT &iResult = m_pCodec->DecodeAudio(pInBuf, nInBufLen, eAudioType);
+    return iResult;
 }

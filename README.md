@@ -1,1 +1,0 @@
-cat xxx | pv -L 40k | nc xxx xxx

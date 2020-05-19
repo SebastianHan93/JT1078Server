@@ -186,7 +186,15 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
     }
     else// if (eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)
     {
-        b = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
+        DECODE_RESULT &iResult = iCoder.DecodeAudio(const_cast<char *>(iCoder.GetData().data()),
+                                                    iCoder.GetData().size(), iCoder.GetAVCodingType());
+        if (iResult.m_eType != CCodec::AUDIO_CODING_TYPE::eUnSupport) {
+            b = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
+        } else {
+            LOG_INFO << "不支持的音频类型!";
+            b = false;
+        }
+
     }
     iCoder.GetData().clear();
     return b;
