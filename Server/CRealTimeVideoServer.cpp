@@ -64,17 +64,6 @@ void CRealTimeVideoServer::__OnConnection(const muduo::net::TcpConnectionPtr& co
 
 void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,muduo::net::Buffer* pBuf,muduo::Timestamp time)
 {
-
-//    muduo::string msg(pBuf->retrieveAllAsString());
-//    muduo::string msg(pBuf->retrieveAsString(100));
-//    string s;
-//    LOG_INFO << s.max_size();
-//    LOG_INFO << conn->name() << " echo " << msg.size() << " bytes, "
-//             << "data received at " << time.toString();
-//    conn->send(msg);
-    static int i = 0;
-    i++;
-    printf("static int i=%d\n",i);
     bool bSuccess;
     assert(!conn->getContext().empty());
     WEAK_ENTRY_PTR weakEntry(boost::any_cast<WEAK_ENTRY_PTR>(conn->getContext()));
@@ -89,6 +78,7 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
     if (!bSuccess)
     {
         conn->shutdown();
+        return;
     }
     else
     {
@@ -108,18 +98,18 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
 
                 string sUrl = "rtmp://192.168.0.141:20002/live/%E4%BA%91L34018.%E9%BB%91%E8%89%B2.4.0.1";
                 bSuccess = iCoder.Init(sUrl);
-                if(!bSuccess)
-                {
-                    LOG_ERROR << "初始化Stream失败"<< "--->" << "URL:" << sUrl;
-                    conn->forceClose();
+                if(!bSuccess) {
+                    LOG_ERROR << "初始化Stream失败" << "--->" << "URL:" << sUrl;
+                    conn->shutdown();
+                    return;
                 }
             }
             bSuccess = WriteDataToStream(iCoder,eDataType);
-            if(!bSuccess)
-            {
-                LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)?"音频":"视频") << "失败"
-                        << "--->" << "URL:" << iCoder.GetUrl();
-                conn->forceClose();
+            if(!bSuccess) {
+                LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio) ? "音频" : "视频") << "失败"
+                          << "--->" << "URL:" << iCoder.GetUrl();
+                conn->shutdown();
+                return;
             }
             iCoder.SetCurReceiveStat(JT1078_CUR_RECEIVE_STATE::eInit);
         }

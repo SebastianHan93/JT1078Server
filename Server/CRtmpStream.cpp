@@ -31,7 +31,8 @@ CRtmpStream::CRtmpStream()
 CRtmpStream::~CRtmpStream()
 {
     /* Write the stream trailer to an output media file */
-    av_write_trailer(oc);
+    if (oc)
+        av_write_trailer(oc);
 
     /* Close each codec. */
     if (have_video)
@@ -40,8 +41,10 @@ CRtmpStream::~CRtmpStream()
         close_stream(&audio_st);
 
     /* Close the output file. */
-    if (!(fmt->flags & AVFMT_NOFILE))
-        avio_closep(&oc->pb);
+    if (fmt) {
+        if (!(fmt->flags & AVFMT_NOFILE))
+            avio_closep(&oc->pb);
+    }
 
     /* free the stream */
     if (oc)
