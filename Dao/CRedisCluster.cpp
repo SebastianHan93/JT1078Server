@@ -27,7 +27,7 @@ void CRedisCluster::__Connect()
 {
 //
 //    m_pCtx = redisClusterContextInit();
-//    redisClusterSetOptionAddNodes(m_pCtx,m_pClusterAddr);
+    redisClusterSetOptionAddNodes(m_pCtx, m_pClusterAddr);
     redisClusterConnect2(m_pCtx);
     if (m_pCtx != nullptr && m_pCtx->err)
     {

@@ -6,8 +6,7 @@
 #include "muduo/base/Logging.h"
 
 CRtmpStream::CRtmpStream()
-        : m_bIsPushing(false),
-          m_bIsInit(false)
+        : m_bIsPushing(false)
 {
     have_video = 0;
     have_audio = 0;
@@ -30,34 +29,32 @@ CRtmpStream::CRtmpStream()
     pcmencodesize = 0;
 }
 
-CRtmpStream::~CRtmpStream()
-{
-    if (m_bIsInit) {
-        /* Write the stream trailer to an output media file */
+CRtmpStream::~CRtmpStream() {
+
+    /* Write the stream trailer to an output media file */
+    if (oc != nullptr)
         av_write_trailer(oc);
-
-        /* Close each codec. */
-        if (have_video)
-            close_stream(&video_st);
-        if (have_audio)
-            close_stream(&audio_st);
-
-        /* Close the output file. */
+    /* Close each codec. */
+    if (have_video)
+        close_stream(&video_st);
+    if (have_audio)
+        close_stream(&audio_st);
+    /* Close the output file. */
+    if (!fmt) {
         if (!(fmt->flags & AVFMT_NOFILE))
             avio_closep(&oc->pb);
+    }
+    /* free the stream */
+    if (oc)
+        avformat_free_context(oc);
+    /* free the audio frame */
+    if (pRawBuff)
+        av_free(pRawBuff);
+    if (pConvertBuff)
+        av_free(pConvertBuff);
 
-        /* free the stream */
-        if (oc)
-            avformat_free_context(oc);
-
-        /* free the audio frame */
-        if (pRawBuff)
-            av_free(pRawBuff);
-        if (pConvertBuff)
-            av_free(pConvertBuff);
-        if (m_bIsPushing) {
-            SetPushState(false);
-        }
+    if (m_bIsPushing) {
+        SetPushState(false);
     }
 
 }
@@ -141,7 +138,6 @@ int CRtmpStream::Init(const char *filename)
         return -1;
     }
     m_bIsPushing = true;
-    m_bIsInit = true;
     return 0;
 }
 /*

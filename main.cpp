@@ -42,7 +42,7 @@ int main() {
 
 
 //    SetLogging("JT1078Server.log", true,Logger::LogLevel::DEBUG);
-//    SetLogging("JT1078Server.log", true, static_cast<muduo::Logger::LogLevel>(pConf->GetIntDefault("LogLevel",1)));
+    SetLogging("JT1078Server.log", true, static_cast<muduo::Logger::LogLevel>(pConf->GetIntDefault("LogLevel", 1)));
 
     EventLoop loop;
     int LivePort = pConf->GetIntDefault("LiveListenPort", 20002);;
