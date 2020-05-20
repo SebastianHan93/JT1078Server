@@ -70,6 +70,7 @@ private:
     int pcmencodesize;
     bool m_bIsPushing;
     std::string m_sUrl;
+    bool m_bIsInit;
 };
 
 

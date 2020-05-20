@@ -28,21 +28,17 @@ CRealTimeVideoServer::CRealTimeVideoServer(muduo::net::EventLoop * iLoop,
      m_iURLManager(new CURLManager())
 {
     CConf *pConf = CConf::GetInstance();
-    m_iServer.setConnectionCallback(std::bind(&CRealTimeVideoServer::__OnConnection,this,_1));
-    m_iServer.setMessageCallback(std::bind(&CRealTimeVideoServer::__OnMessage,this,_1,_2,_3));
-    iLoop->runEvery(1.0,std::bind(&CRealTimeVideoServer::__OnTimer,this));
+    m_iServer.setConnectionCallback(std::bind(&CRealTimeVideoServer::__OnConnection, this, _1));
+    m_iServer.setMessageCallback(std::bind(&CRealTimeVideoServer::__OnMessage, this, _1, _2, _3));
+    iLoop->runEvery(1.0, std::bind(&CRealTimeVideoServer::__OnTimer, this));
     m_iConnectionBuckets.resize(nIdleSeconds);
-    __DumpConnectionBuckets();
+    //__DumpConnectionBuckets();
     SetThreadNum(m_nNumThreads);
-//    if(m_sServerName == "Live")
-//    {
-//        m_nRTMPPort = pConf->GetIntDefault("RTMPLivePort",20002);
-//    }
-//    else
-//    {
-//        m_nRTMPPort = pConf->GetIntDefault("RTMPHistoryPort",20003);
-//    }
-    m_nRTMPPort = iListenAddr.toPort();
+    if (m_sServerName == "live") {
+        m_nRTMPPort = pConf->GetIntDefault("RTMPLivePort", 20002);
+    } else {
+        m_nRTMPPort = pConf->GetIntDefault("RTMPHistoryPort", 20003);
+    }
     m_sRTMPAddr = pConf->GetString("RTMPServer");
 }
 
@@ -85,14 +81,14 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
     if(iEntry)
     {
         m_iConnectionBuckets.back().insert(iEntry);
-        __DumpConnectionBuckets();
+        //__DumpConnectionBuckets();
     }
     CDecoder & iCoder = iEntry->m_iWeakDecoder;
 
     bSuccess = iCoder.Decode(pBuf,time);
-    if (!bSuccess)
-    {
-        conn->forceClose();
+    if (!bSuccess) {
+        conn->shutdown();
+        return;
     }
     else
     {
@@ -113,28 +109,28 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
                 if(iEntry->m_sRTMPURL.empty())
                 {
                     bSuccess = iEntry->GetInfoFromRedis();
-                    if(!bSuccess)
-                    {
+                    if(!bSuccess) {
                         LOG_INFO << "获取redis数据出错,关闭连接";
-                        conn->forceClose();
+                        conn->shutdown();
+                        return;
                     }
 
                     sUrl = iEntry->GetURL();
                 }
 
                 bSuccess = iCoder.Init(sUrl);
-                if(!bSuccess)
-                {
-                    LOG_ERROR << "初始化Stream失败"<< "--->" << "URL:" << sUrl;
-                    conn->forceClose();
+                if(!bSuccess) {
+                    LOG_ERROR << "初始化Stream失败" << "--->" << "URL:" << sUrl;
+                    conn->shutdown();
+                    return;
                 }
             }
             bSuccess = WriteDataToStream(iCoder,eDataType);
-            if(!bSuccess)
-            {
-                LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)?"音频":"视频") << "失败"
-                        << "--->" << "URL:" << iCoder.GetUrl();
-                conn->forceClose();
+            if(!bSuccess) {
+                LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio) ? "音频" : "视频") << "失败"
+                          << "--->" << "URL:" << iCoder.GetUrl();
+                conn->shutdown();
+                return;
             }
             iCoder.SetCurReceiveStat(JT1078_CUR_RECEIVE_STATE::eInit);
         }
@@ -186,32 +182,33 @@ CRealTimeVideoServer::Entry::~Entry()
         conn->shutdown();
     }
 }
+
 std::string CRealTimeVideoServer::GetServerName() const
 {
     return m_sServerName;
 }
 
-std::string CRealTimeVideoServer::Entry::GetURL()
-{
+std::string CRealTimeVideoServer::Entry::GetURL() {
     char gStream[100] = {0};
     char gRtmpUrl[200] = {0};
-    JT_1078_HEADER & iHeader = m_iWeakDecoder.GetHeader();
-    sprintf(gStream,"%s.%s.%d.%s.%s",
+    JT_1078_HEADER &iHeader = m_iWeakDecoder.GetHeader();
+    sprintf(gStream, "%s.%s.%d.%s.%s",
             m_iRedisInfo.m_sVehiclePlateNo.c_str(),
             m_iRedisInfo.m_sVehiclePlateColor.c_str(),
             iHeader.Bt1LogicChannelNumber,
             m_iRedisInfo.m_sMediaFlag.c_str(),
-            m_iRedisInfo.m_sToken.c_str());
+            "1");
+    //m_iRedisInfo.m_sToken.c_str());
 
     string sStream = EscapeURL(gStream);
 
-    sprintf(gRtmpUrl,"rtmp://%s:%d/%s/%s",
+    sprintf(gRtmpUrl, "rtmp://%s:%d/%s/%s",
             m_pServer->m_sRTMPAddr.data(),
             m_pServer->m_nRTMPPort,
             m_pServer->GetServerName().data(),
             sStream.data()
     );
-    LOG_INFO << "sStream-->"<<gStream;
+    LOG_INFO << "sStream-->" << gStream;
     LOG_INFO << "EscapeURL-->"<<gRtmpUrl;
     m_sRTMPURL = gRtmpUrl;
     return gRtmpUrl;
@@ -219,9 +216,9 @@ std::string CRealTimeVideoServer::Entry::GetURL()
 
 bool CRealTimeVideoServer::Entry::GetInfoFromRedis()
 {
-    JT_1078_HEADER & iHeader = m_iWeakDecoder.GetHeader();
+    JT_1078_HEADER &iHeader = m_iWeakDecoder.GetHeader();
     char gParaKey[50] = {0};
-    sprintf(gParaKey,"%s%02X%02X%02X%02X%02X%02X",
+    sprintf(gParaKey, "%s%02X%02X%02X%02X%02X%02X",
             "stream:",
             iHeader.BCDSIMCardNumber[0],
             iHeader.BCDSIMCardNumber[1],
@@ -229,16 +226,18 @@ bool CRealTimeVideoServer::Entry::GetInfoFromRedis()
             iHeader.BCDSIMCardNumber[3],
             iHeader.BCDSIMCardNumber[4],
             iHeader.BCDSIMCardNumber[5]);
-    m_iRedisInfo.m_sParaKey =  gParaKey;
-    m_iRedisInfo.m_sIp = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"ip");
-    m_iRedisInfo.m_sPort = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"port");
-    m_iRedisInfo.m_sToken = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"token");
-    m_iRedisInfo.m_sMobileNumber = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"mobileNumber");
-    m_iRedisInfo.m_sAudioCodingMode = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioCodingMode");
-    m_iRedisInfo.m_sAudioChanelNum = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioChanelNum");
-    m_iRedisInfo.m_sAudioRate = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioRate");
-    m_iRedisInfo.m_sAudioRateBit = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioRateBit");
-    m_iRedisInfo.m_sAudioFrameLengh = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioFrameLengh");
+    LOG_DEBUG << "+++++++" << gParaKey;
+    LOG_DEBUG << "+++++++++" << iHeader.Bt1LogicChannelNumber;
+    m_iRedisInfo.m_sParaKey = gParaKey;
+    m_iRedisInfo.m_sIp = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "ip");
+    m_iRedisInfo.m_sPort = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "port");
+    m_iRedisInfo.m_sToken = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "token");
+    m_iRedisInfo.m_sMobileNumber = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "mobileNumber");
+    m_iRedisInfo.m_sAudioCodingMode = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "audioCodingMode");
+    m_iRedisInfo.m_sAudioChanelNum = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "audioChanelNum");
+    m_iRedisInfo.m_sAudioRate = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "audioRate");
+    m_iRedisInfo.m_sAudioRateBit = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "audioRateBit");
+    m_iRedisInfo.m_sAudioFrameLengh = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey, "audioFrameLengh");
     m_iRedisInfo.m_sEnableAudioOut = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"enableAudioOut");
     m_iRedisInfo.m_sCameraCodingMode = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"cameraCodingMode");
     m_iRedisInfo.m_sMaxAudioChanelNum = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"maxAudioChanelNum");
