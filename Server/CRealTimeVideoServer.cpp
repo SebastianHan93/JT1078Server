@@ -1,14 +1,15 @@
 //
 // Created by hc on 2020/5/6.
 //
-#include <assert.h>
-#include <stdio.h>
+#include <cassert>
+#include <cstdio>
 #include "CRealTimeVideoServer.h"
 #include <functional>
 #include "muduo/base/Logging.h"
 #include "muduo/net/EventLoop.h"
 #include "muduo/net/EventLoopThreadPool.h"
 #include "JT1078Header.h"
+#include "../Configuration/CConf.h"
 
 using namespace muduo;
 using namespace muduo::net;
@@ -22,14 +23,27 @@ CRealTimeVideoServer::CRealTimeVideoServer(muduo::net::EventLoop * iLoop,
     :m_iServer(iLoop,iListenAddr,sServerName),
      m_iConnectionBuckets(nIdleSeconds),
      m_sServerName(sServerName),
-     m_nNumThreads(nNumThreads>0?nNumThreads:0)
+     m_nNumThreads(nNumThreads>0?nNumThreads:0),
+     m_iRedis(new CRedisCluster()),
+     m_iURLManager(new CURLManager())
 {
+    CConf *pConf = CConf::GetInstance();
     m_iServer.setConnectionCallback(std::bind(&CRealTimeVideoServer::__OnConnection,this,_1));
     m_iServer.setMessageCallback(std::bind(&CRealTimeVideoServer::__OnMessage,this,_1,_2,_3));
     iLoop->runEvery(1.0,std::bind(&CRealTimeVideoServer::__OnTimer,this));
     m_iConnectionBuckets.resize(nIdleSeconds);
     __DumpConnectionBuckets();
     SetThreadNum(m_nNumThreads);
+//    if(m_sServerName == "Live")
+//    {
+//        m_nRTMPPort = pConf->GetIntDefault("RTMPLivePort",20002);
+//    }
+//    else
+//    {
+//        m_nRTMPPort = pConf->GetIntDefault("RTMPHistoryPort",20003);
+//    }
+    m_nRTMPPort = iListenAddr.toPort();
+    m_sRTMPAddr = pConf->GetString("RTMPServer");
 }
 
 void CRealTimeVideoServer::Start()
@@ -48,7 +62,7 @@ void CRealTimeVideoServer::__OnConnection(const muduo::net::TcpConnectionPtr& co
             << conn->localAddress().toIpPort() << "is" << (conn->connected() ? "UP" : "DOWN");
     if(conn->connected())
     {
-        ENTRY_PTR entryPtr(new Entry(conn));
+        ENTRY_PTR entryPtr(new Entry(conn,this));
         m_iConnectionBuckets.back().insert(entryPtr);
 //        __DumpConnectionBuckets();
         WEAK_ENTRY_PTR weakEntryPtr(entryPtr);
@@ -58,37 +72,27 @@ void CRealTimeVideoServer::__OnConnection(const muduo::net::TcpConnectionPtr& co
     {
         assert(!conn->getContext().empty());
         WEAK_ENTRY_PTR weakEntryPtr(boost::any_cast<WEAK_ENTRY_PTR>(conn->getContext()));
-        LOG_DEBUG << "Entry use_count = " << weakEntryPtr.use_count();
+        LOG_INFO << "Entry use_count = " << weakEntryPtr.use_count();
     }
 }
 
 void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,muduo::net::Buffer* pBuf,muduo::Timestamp time)
 {
-
-//    muduo::string msg(pBuf->retrieveAllAsString());
-//    muduo::string msg(pBuf->retrieveAsString(100));
-//    string s;
-//    LOG_INFO << s.max_size();
-//    LOG_INFO << conn->name() << " echo " << msg.size() << " bytes, "
-//             << "data received at " << time.toString();
-//    conn->send(msg);
-    static int i = 0;
-    i++;
-    printf("static int i=%d\n",i);
     bool bSuccess;
     assert(!conn->getContext().empty());
     WEAK_ENTRY_PTR weakEntry(boost::any_cast<WEAK_ENTRY_PTR>(conn->getContext()));
-    ENTRY_PTR entry(weakEntry.lock());
-    if(entry)
+    ENTRY_PTR iEntry(weakEntry.lock());
+    if(iEntry)
     {
-        m_iConnectionBuckets.back().insert(entry);
+        m_iConnectionBuckets.back().insert(iEntry);
         __DumpConnectionBuckets();
     }
-    CDecoder & iCoder = entry->m_iWeakDecoder;
+    CDecoder & iCoder = iEntry->m_iWeakDecoder;
+
     bSuccess = iCoder.Decode(pBuf,time);
     if (!bSuccess)
     {
-        conn->shutdown();
+        conn->forceClose();
     }
     else
     {
@@ -105,8 +109,19 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
             assert(eMarke == JT1078_SUB_MARKE::eAtomic || eMarke == JT1078_SUB_MARKE::eLast);
             if(!iCoder.GetPushState())
             {
+                string sUrl;
+                if(iEntry->m_sRTMPURL.empty())
+                {
+                    bSuccess = iEntry->GetInfoFromRedis();
+                    if(!bSuccess)
+                    {
+                        LOG_INFO << "获取redis数据出错,关闭连接";
+                        conn->forceClose();
+                    }
 
-                string sUrl = "rtmp://192.168.0.141:20002/live/%E4%BA%91L34018.%E9%BB%91%E8%89%B2.4.0.1";
+                    sUrl = iEntry->GetURL();
+                }
+
                 bSuccess = iCoder.Init(sUrl);
                 if(!bSuccess)
                 {
@@ -156,8 +171,9 @@ void CRealTimeVideoServer::__DumpConnectionBuckets() const
     }
 }
 
-CRealTimeVideoServer::Entry::Entry(const WEAK_TCP_CONNECTION_PTR & iWeakConn)
-    :m_iWeakConn(iWeakConn)
+CRealTimeVideoServer::Entry::Entry(const WEAK_TCP_CONNECTION_PTR & iWeakConn,CRealTimeVideoServer * iServer)
+    :m_iWeakConn(iWeakConn),
+     m_pServer(iServer)
 {
 
 }
@@ -170,6 +186,147 @@ CRealTimeVideoServer::Entry::~Entry()
         conn->shutdown();
     }
 }
+std::string CRealTimeVideoServer::GetServerName() const
+{
+    return m_sServerName;
+}
+
+std::string CRealTimeVideoServer::Entry::GetURL()
+{
+    char gStream[100] = {0};
+    char gRtmpUrl[200] = {0};
+    JT_1078_HEADER & iHeader = m_iWeakDecoder.GetHeader();
+    sprintf(gStream,"%s.%s.%d.%s.%s",
+            m_iRedisInfo.m_sVehiclePlateNo.c_str(),
+            m_iRedisInfo.m_sVehiclePlateColor.c_str(),
+            iHeader.Bt1LogicChannelNumber,
+            m_iRedisInfo.m_sMediaFlag.c_str(),
+            m_iRedisInfo.m_sToken.c_str());
+
+    string sStream = EscapeURL(gStream);
+
+    sprintf(gRtmpUrl,"rtmp://%s:%d/%s/%s",
+            m_pServer->m_sRTMPAddr.data(),
+            m_pServer->m_nRTMPPort,
+            m_pServer->GetServerName().data(),
+            sStream.data()
+    );
+    LOG_INFO << "sStream-->"<<gStream;
+    LOG_INFO << "EscapeURL-->"<<gRtmpUrl;
+    m_sRTMPURL = gRtmpUrl;
+    return gRtmpUrl;
+}
+
+bool CRealTimeVideoServer::Entry::GetInfoFromRedis()
+{
+    JT_1078_HEADER & iHeader = m_iWeakDecoder.GetHeader();
+    char gParaKey[50] = {0};
+    sprintf(gParaKey,"%s%02X%02X%02X%02X%02X%02X",
+            "stream:",
+            iHeader.BCDSIMCardNumber[0],
+            iHeader.BCDSIMCardNumber[1],
+            iHeader.BCDSIMCardNumber[2],
+            iHeader.BCDSIMCardNumber[3],
+            iHeader.BCDSIMCardNumber[4],
+            iHeader.BCDSIMCardNumber[5]);
+    m_iRedisInfo.m_sParaKey =  gParaKey;
+    m_iRedisInfo.m_sIp = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"ip");
+    m_iRedisInfo.m_sPort = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"port");
+    m_iRedisInfo.m_sToken = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"token");
+    m_iRedisInfo.m_sMobileNumber = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"mobileNumber");
+    m_iRedisInfo.m_sAudioCodingMode = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioCodingMode");
+    m_iRedisInfo.m_sAudioChanelNum = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioChanelNum");
+    m_iRedisInfo.m_sAudioRate = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioRate");
+    m_iRedisInfo.m_sAudioRateBit = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioRateBit");
+    m_iRedisInfo.m_sAudioFrameLengh = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"audioFrameLengh");
+    m_iRedisInfo.m_sEnableAudioOut = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"enableAudioOut");
+    m_iRedisInfo.m_sCameraCodingMode = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"cameraCodingMode");
+    m_iRedisInfo.m_sMaxAudioChanelNum = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"maxAudioChanelNum");
+    m_iRedisInfo.m_sMaxCameraChanelNUm = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"maxCameraChanelNUm");
+    m_iRedisInfo.m_sVehiclePlateNo = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"vehiclePlateNo");
+    m_iRedisInfo.m_sVehiclePlateColor = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"vehiclePlateColor");
+    m_iRedisInfo.m_sMediaFlag = m_pServer->m_iRedis->Hget(m_iRedisInfo.m_sParaKey,"mediaFlag");
+    if(m_iRedisInfo.m_sVehiclePlateColor.empty() || m_iRedisInfo.m_sVehiclePlateNo.empty() || m_iRedisInfo.m_sMediaFlag.empty())
+    {
+        LOG_INFO << "从redis获取终端信息失败";
+        return false;
+    }
+    m_iRedisInfo.m_sLiveStatKey = m_iRedisInfo.m_sParaKey+":"+std::to_string(iHeader.Bt1LogicChannelNumber) + ":" + "live";
+    LOG_DEBUG << "REDIS LEY -->" <<m_iRedisInfo.m_sLiveStatKey;
+    return true;
+
+}
+
+string CRealTimeVideoServer::Entry::EscapeURL(const string &URL)
+{
+    string result = "";
+    for ( unsigned int i=0; i<URL.size(); i++ ) {
+        char c = URL[i];
+        if (
+                ( '0'<=c && c<='9' ) ||
+                ( 'a'<=c && c<='z' ) ||
+                ( 'A'<=c && c<='Z' ) ||
+                c=='/' || c=='.'
+                ) {
+            result += c;
+        } else {
+            int j = (short int)c;
+            if ( j < 0 ) {
+                j += 256;
+            }
+            int i1, i0;
+            i1 = j / 16;
+            i0 = j - i1*16;
+            result += '%';
+            result += Dec2HexChar(i1);
+            result += Dec2HexChar(i0);
+        }
+    }
+    return result;
+}
+
+string CRealTimeVideoServer::Entry::DeescapeURL(const string &URL) {
+    string result = "";
+    for ( unsigned int i=0; i<URL.size(); i++ ) {
+        char c = URL[i];
+        if ( c != '%' ) {
+            result += c;
+        } else {
+            char c1 = URL[++i];
+            char c0 = URL[++i];
+            int num = 0;
+            num += HexChar2Dec(c1) * 16 + HexChar2Dec(c0);
+            result += char(num);
+        }
+    }
+    return result;
+}
+
+char CRealTimeVideoServer::Entry::Dec2HexChar(short int n)
+{
+    if ( 0 <= n && n <= 9 ) {
+        return char( short('0') + n );
+    } else if ( 10 <= n && n <= 15 ) {
+        return char( short('A') + n - 10 );
+    } else {
+        return char(0);
+    }
+}
+
+short int CRealTimeVideoServer::Entry::HexChar2Dec(char c)
+{
+    if ( '0'<=c && c<='9' ) {
+        return short(c-'0');
+    } else if ( 'a'<=c && c<='f' ) {
+        return ( short(c-'a') + 10 );
+    } else if ( 'A'<=c && c<='F' ) {
+        return ( short(c-'A') + 10 );
+    } else {
+        return -1;
+    }
+}
+
+
 
 bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA_TYPE eDataType)//,AVMediaType iDataType, char *pData, int nDataLen)
 {
@@ -199,3 +356,5 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
     iCoder.GetData().clear();
     return b;
 }
+
+

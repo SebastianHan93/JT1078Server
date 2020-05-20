@@ -52,6 +52,7 @@ public:
         eNoError,
         eLengthError,
         eCodingTypeError,
+        eRedisError
     };
     enum AV_CODING_TYPE
     {

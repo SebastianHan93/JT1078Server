@@ -195,7 +195,6 @@ void adpcm_decoder(char *indata, short *outdata, int len, adpcm_state *state)
     bufferstep = 0;
 
     for ( ; len > 0 ; len-- ) {
-        printf("valpred=%d\n",valpred);
         /* Step 1 - get the delta value */
         if ( bufferstep ) {
             delta = inputbuffer & 0xf;

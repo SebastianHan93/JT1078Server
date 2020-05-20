@@ -3,6 +3,7 @@
 //
 
 #include "CRtmpStream.h"
+#include "muduo/base/Logging.h"
 
 CRtmpStream::CRtmpStream()
   :m_bIsPushing(false)
@@ -73,7 +74,7 @@ int CRtmpStream::Init(const char *filename)
     /* allocate the output media context */
     avformat_alloc_output_context2(&oc, NULL, "flv", filename);
     if (!oc) {
-        printf("Could not deduce output format from file extension.\n");
+        LOG_ERROR << "CRtmpStream::Init::avformat_alloc_output_context2-->无法从文件扩展名推断输出格式";
         return -1;
     }
 
@@ -85,7 +86,7 @@ int CRtmpStream::Init(const char *filename)
         fmt->video_codec = AV_CODEC_ID_H264;
         ret = add_stream(&video_st, &video_codec, fmt->video_codec);
         if (ret < 0) {
-            printf("Could not add video stream.\n");
+            LOG_ERROR << "CRtmpStream::Init::add_stream-->打开视频流出错";
             return -1;
         }
         have_video = 1;
@@ -94,7 +95,7 @@ int CRtmpStream::Init(const char *filename)
         fmt->audio_codec = AV_CODEC_ID_AAC;
         ret = add_stream(&audio_st, &audio_codec, fmt->audio_codec);
         if (ret < 0) {
-            printf("Could not add audio stream.\n");
+            LOG_ERROR << "CRtmpStream::Init::add_stream-->打开音频流出错";
             return -1;
         }
         have_audio = 1;
@@ -105,7 +106,7 @@ int CRtmpStream::Init(const char *filename)
     if (have_video) {
         ret = open_video(video_codec, &video_st, opt);
         if (ret < 0) {
-            printf("Could not open video.\n");
+            LOG_ERROR << "CRtmpStream::Init::open_video-->打开video失败";
             return -1;
         }
     }
@@ -113,7 +114,7 @@ int CRtmpStream::Init(const char *filename)
     if (have_audio) {
         ret = open_audio(audio_codec, &audio_st, opt);
         if (ret < 0) {
-            printf("Could not open audio.\n");
+            LOG_ERROR << "CRtmpStream::Init::open_audio-->打开audio失败";
             return -1;
         }
     }
@@ -125,6 +126,7 @@ int CRtmpStream::Init(const char *filename)
         ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE);
         if (ret < 0) {
             printf("Could not open '%s'\n", filename);
+            LOG_ERROR << "CRtmpStream::Init::avio_open-->打开URL失败-->URL["<<filename<<"]";
             return -1;
         }
     }
@@ -132,7 +134,7 @@ int CRtmpStream::Init(const char *filename)
     /* Write the stream header, if any. */
     ret = avformat_write_header(oc, &opt);
     if (ret < 0) {
-        printf("Error occurred when opening output file\n");
+        LOG_ERROR << "CRtmpStream::Init::avformat_write_header-->打开输出文件发生错误";
         return -1;
     }
     m_bIsPushing = true;
@@ -176,20 +178,20 @@ int CRtmpStream::add_stream(OutputStream *ost, AVCodec **codec, enum AVCodecID c
     /* find the encoder */
     *codec = avcodec_find_encoder(codec_id);
     if (!(*codec)) {
-        printf("Could not find encoder for '%s'\n", avcodec_get_name(codec_id));
+        LOG_ERROR << "CRtmpStream::add_stream::avcodec_find_encoder -->寻找编码器错误-->编码器ID["<<avcodec_get_name(codec_id) <<"]";
         return -1;
     }
 
     ost->st = avformat_new_stream(oc, NULL);
     if (!ost->st) {
-        printf("Could not allocate stream\n");
+        LOG_ERROR << "CRtmpStream::add_stream::avformat_new_stream-->初始化流错误";
         return -1;
     }
     ost->st->id = oc->nb_streams - 1;
 
     c = avcodec_alloc_context3(*codec);
     if (!c) {
-        printf("Could not alloc an encoding context\n");
+        LOG_ERROR << "CRtmpStream::add_stream::avcodec_alloc_context3-->初始化编码上下文错误";
         return -1;
     }
     ost->enc = c;
@@ -252,13 +254,15 @@ int CRtmpStream::open_audio(AVCodec *codec, OutputStream *ost, AVDictionary *opt
     av_dict_free(&opt);
     if (ret < 0) {
         printf("Could not open audio codec\n");
+        LOG_ERROR << "CRtmpStream::open_audio::avcodec_open2-->无法找到音频编码器";
         return -1;
     }
 
     /* copy the stream parameters to the muxer */
     ret = avcodec_parameters_from_context(ost->st->codecpar, c);
     if (ret < 0) {
-        printf("Could not copy the stream parameters\n");
+        LOG_ERROR << "CRtmpStream::open_audio::avcodec_parameters_from_context-->流参数错误";
+
         return -1;
     }
 
@@ -276,7 +280,8 @@ int CRtmpStream::open_audio(AVCodec *codec, OutputStream *ost, AVDictionary *opt
     ret = avcodec_fill_audio_frame(ost->tmp_frame, c->channels, AV_SAMPLE_FMT_S16, (const uint8_t*)pRawBuff, iRawBuffSize, 0);
     if (ret<0)
     {
-        printf("Could not fill input audio frame\n");
+        LOG_ERROR << "CRtmpStream::open_audio::avcodec_fill_audio_frame-->无法填充音频帧";
+
         return -1;
     }
 
@@ -292,14 +297,14 @@ int CRtmpStream::open_audio(AVCodec *codec, OutputStream *ost, AVDictionary *opt
     ret = avcodec_fill_audio_frame(ost->frame, c->channels, c->sample_fmt, (const uint8_t*)pConvertBuff, iConvertBuffSize, 0);
     if (ret < 0)
     {
-        printf("Could not fill resample audio frame\n");
+        LOG_ERROR << "CRtmpStream::open_audio::avcodec_fill_audio_frame-->无法填充重采样音频帧";
         return -1;
     }
 
     /* create resampler context */
     ost->swr_ctx = swr_alloc();
     if (!ost->swr_ctx) {
-        printf("Could not allocate resampler context\n");
+        LOG_ERROR << "CRtmpStream::open_audio::swr_alloc-->无法分配重采样上下文";
         return -1;
     }
 
@@ -313,11 +318,10 @@ int CRtmpStream::open_audio(AVCodec *codec, OutputStream *ost, AVDictionary *opt
 
     /* initialize the resampling context */
     if ((ret = swr_init(ost->swr_ctx)) < 0) {
-        printf("Failed to initialize the resampling context\n");
+        LOG_ERROR << "CRtmpStream::open_audio::swr_init-->初始化重采样上下文错误";
         return -1;
     }
-
-    printf("succ open audio codec\n");
+    LOG_DEBUG << "打开音频编码器成功";
     return 0;
 }
 
@@ -359,6 +363,8 @@ int CRtmpStream::write_audio_frame(OutputStream *ost, char* data, int datalen)
         ret = swr_convert(ost->swr_ctx, (uint8_t**)ost->frame->data, frame->nb_samples, (const uint8_t**)frame->data, frame->nb_samples);
         if (ret < 0) {
             printf("Error while converting\n");
+            LOG_ERROR << "CRtmpStream::write_audio_frame::swr_convert-->编码转换错误";
+
             return -1;
         }
 
@@ -369,14 +375,14 @@ int CRtmpStream::write_audio_frame(OutputStream *ost, char* data, int datalen)
 
     ret = avcodec_encode_audio2(c, &pkt, frame, &got_packet);
     if (ret < 0) {
-        printf("Error encoding audio frame\n");
+        LOG_ERROR << "CRtmpStream::write_audio_frame::avcodec_encode_audio2-->编码音频错误";
         return -1;
     }
 
     if (got_packet) {
         ret = write_frame(oc, &c->time_base, ost->st, &pkt);
         if (ret < 0) {
-            printf("Error while writing audio frame\n");
+            LOG_ERROR << "CRtmpStream::write_audio_frame::write_frame-->写入音频错误";
             return -1;
         }
     }
@@ -395,18 +401,19 @@ int CRtmpStream::open_video(AVCodec *codec, OutputStream *ost, AVDictionary *opt
     ret = avcodec_open2(c, codec, &opt);
     av_dict_free(&opt);
     if (ret < 0) {
-        printf("Could not open video codec\n");
+        LOG_ERROR << "CRtmpStream::open_video::avcodec_open2-->打开视频编码器错误";
         return -1;
     }
 
     /* copy the stream parameters to the muxer */
     ret = avcodec_parameters_from_context(ost->st->codecpar, c);
     if (ret < 0) {
-        printf("Could not copy the stream parameters\n");
+        LOG_ERROR << "CRtmpStream::open_video::avcodec_parameters_from_context-->设置视频流信息出错";
+
         return -1;
     }
 
-    printf("succ open video codec\n");
+    LOG_DEBUG << "打开视频编码器成功";
     return 0;
 }
 
@@ -436,7 +443,7 @@ int CRtmpStream::write_video_frame(OutputStream *ost, char* data, int datalen)
 
     ret = write_frame(oc, &c->time_base, ost->st, &pkt);
     if (ret < 0) {
-        printf("Error while writing video frame\n");
+        LOG_DEBUG << "CRtmpStream::write_video_frame::write_frame-->写入视频帧出错";
         return -1;
     }
 

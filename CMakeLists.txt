@@ -8,6 +8,6 @@ set(LINK_DIR /usr/lib/lib/ /usr/local/ffmpeg/lib /home/hc/muduo/build/release-in
 
 include_directories(${INC_DIR})
 link_directories(${LINK_DIR})
-link_libraries(muduo_net muduo_base pthread avformat avutil avcodec swresample)
+link_libraries(muduo_net muduo_base pthread avformat avutil avcodec swresample rediscluster)
 
-add_executable(JT1078Server main.cpp Server/CRealTimeVideoServer.h Server/CRealTimeVideoServer.cpp Server/Log.h Server/Log.cpp Server/JT1078Header.h Server/CDecoder.cpp Server/CDecoder.h Server/CRtmpStream.cpp Server/CRtmpStream.h Server/CFFmpeg.h Server/CCodec.cpp Server/CCodec.h Codec/Adpcm.cpp Codec/G711.cpp Codec/G711.h Codec/Adpcm.h Codec/G726.cpp Codec/G726.h)
+add_executable(JT1078Server main.cpp Server/CRealTimeVideoServer.h Server/CRealTimeVideoServer.cpp Server/Log.h Server/Log.cpp Server/JT1078Header.h Server/CDecoder.cpp Server/CDecoder.h Server/CRtmpStream.cpp Server/CRtmpStream.h Server/CFFmpeg.h Server/CCodec.cpp Server/CCodec.h Codec/Adpcm.cpp Codec/G711.cpp Codec/G711.h Codec/Adpcm.h Codec/G726.cpp Codec/G726.h Configuration/CConf.cpp Configuration/CConf.h Server/Daemon.h Server/Daemon.cpp Dao/CRedisCluster.cpp Dao/CRedisCluster.h Server/CURLManager.cpp Server/CURLManager.h)
