@@ -30,7 +30,7 @@ CRealTimeVideoServer::CRealTimeVideoServer(muduo::net::EventLoop * iLoop,
     CConf *pConf = CConf::GetInstance();
     m_iServer.setConnectionCallback(std::bind(&CRealTimeVideoServer::__OnConnection, this, _1));
     m_iServer.setMessageCallback(std::bind(&CRealTimeVideoServer::__OnMessage, this, _1, _2, _3));
-    iLoop->runEvery(1.0, std::bind(&CRealTimeVideoServer::__OnTimer, this));
+    iLoop->runEvery(2.0, std::bind(&CRealTimeVideoServer::__OnTimer, this));
     m_iConnectionBuckets.resize(nIdleSeconds);
     //__DumpConnectionBuckets();
     SetThreadNum(m_nNumThreads);
@@ -69,6 +69,11 @@ void CRealTimeVideoServer::__OnConnection(const muduo::net::TcpConnectionPtr& co
         assert(!conn->getContext().empty());
         WEAK_ENTRY_PTR weakEntryPtr(boost::any_cast<WEAK_ENTRY_PTR>(conn->getContext()));
         LOG_INFO << "Entry use_count = " << weakEntryPtr.use_count();
+        ENTRY_PTR iEntry(weakEntryPtr.lock());
+        if(iEntry)
+        {
+           LOG_INFO << "退出推流" <<iEntry->GetURL();
+        }
     }
 }
 
@@ -87,7 +92,7 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
 
     bSuccess = iCoder.Decode(pBuf,time);
     if (!bSuccess) {
-        conn->shutdown();
+        conn->forceClose();
         return;
     }
     else
@@ -111,7 +116,7 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
                     bSuccess = iEntry->GetInfoFromRedis();
                     if(!bSuccess) {
                         LOG_INFO << "获取redis数据出错,关闭连接";
-                        conn->shutdown();
+                        conn->forceClose();
                         return;
                     }
 
@@ -121,7 +126,13 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
                 bSuccess = iCoder.Init(sUrl);
                 if(!bSuccess) {
                     LOG_ERROR << "初始化Stream失败" << "--->" << "URL:" << sUrl;
-                    conn->shutdown();
+                    conn->forceClose();
+                    return;
+                }
+
+                if(!iEntry->InitOnRedisState())
+                {
+                    conn->forceClose();
                     return;
                 }
             }
@@ -129,7 +140,7 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
             if(!bSuccess) {
                 LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio) ? "音频" : "视频") << "失败"
                           << "--->" << "URL:" << iCoder.GetUrl();
-                conn->shutdown();
+                conn->forceClose();
                 return;
             }
             iCoder.SetCurReceiveStat(JT1078_CUR_RECEIVE_STATE::eInit);
@@ -144,6 +155,9 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
 void CRealTimeVideoServer::__OnTimer()
 {
     m_iConnectionBuckets.push_back(BUCKET());
+    time_t tNowTime=time(NULL);
+    muduo::Timestamp iTimestamp = muduo::Timestamp::now();
+    m_iRedis->Hset("streamServerKeepAlive","timeStamp",iTimestamp.toString());
 //    __DumpConnectionBuckets();
 }
 
@@ -181,6 +195,51 @@ CRealTimeVideoServer::Entry::~Entry()
     {
         conn->shutdown();
     }
+
+    if(!m_iRedisInfo.m_sLiveStatKey.empty() && (m_pServer->GetServerName() == "live"))
+    {
+        CloseOnRedisState();
+    }
+
+}
+
+bool CRealTimeVideoServer::Entry::InitOnRedisState()
+{
+    if(!m_pServer->m_iRedis->Hset(m_iRedisInfo.m_sLiveStatKey,"state","0"))
+    {
+        LOG_ERROR << "CRealTimeVideoServer::Entry::InitOnRedisState-->更改redis状态失败-->Key["
+                    << m_iRedisInfo.m_sLiveStatKey << "] "
+                    <<"filed[" << "state" << "]";
+        return false;
+    }
+    return true;
+}
+
+bool CRealTimeVideoServer::Entry::CloseOnRedisState()
+{
+    if(m_pServer->GetServerName() == "live")
+    {
+        bool b;
+        b = m_pServer->m_iRedis->Hset(m_iRedisInfo.m_sLiveStatKey,"state","-1");
+        if(!b)
+        {
+            LOG_ERROR << "CRealTimeVideoServer::Entry::CloseOnRedisState-->更改redis状态失败-->Key["
+                      << m_iRedisInfo.m_sLiveStatKey << "] "
+                      <<"filed[" << "state" << "]";
+            return false;
+        }
+
+        b = m_pServer->m_iRedis->Hset(m_iRedisInfo.m_sLiveStatKey,"liveCount","0");
+        if(!b)
+        {
+            LOG_ERROR << "CRealTimeVideoServer::Entry::CloseOnRedisState-->更改redis状态失败-->Key["
+                      << m_iRedisInfo.m_sLiveStatKey << "] "
+                      <<"filed[" << "liveCount" << "]";
+            return false;
+        }
+        return true;
+    }
+    return true;
 }
 
 std::string CRealTimeVideoServer::GetServerName() const

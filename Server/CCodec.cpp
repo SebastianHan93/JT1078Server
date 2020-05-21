@@ -47,15 +47,15 @@ void CCodec::__DecodeG711U2Pcm(char *cInBuf, int nInBufLen) {
 DECODE_RESULT &CCodec::DecodeAudio(char *pInBuf, int nInBufLen, AUDIO_CODING_TYPE eType) {
     switch (eType) {
         case AUDIO_CODING_TYPE::eG711A:
-            LOG_INFO << "eG711A";
+            LOG_DEBUG << "eG711A";
             __DecodeG711A2Pcm(pInBuf, nInBufLen);
             break;
         case AUDIO_CODING_TYPE::eG711U:
-            LOG_INFO << "eG711U";
+            LOG_DEBUG << "eG711U";
             __DecodeG711U2Pcm(pInBuf, nInBufLen);
             break;
         case AUDIO_CODING_TYPE::eAdpcm:
-            LOG_INFO << "eAdpcm";
+            LOG_DEBUG << "eAdpcm";
             __DecodeAdpcm2Pcm(pInBuf, nInBufLen);
             break;
         default:

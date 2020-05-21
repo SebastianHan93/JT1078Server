@@ -32,51 +32,59 @@ CRtmpStream::CRtmpStream()
 CRtmpStream::~CRtmpStream() {
 
     /* Write the stream trailer to an output media file */
-    if (oc != nullptr)
-        av_write_trailer(oc);
-    /* Close each codec. */
-    if (have_video)
-        close_stream(&video_st);
-    if (have_audio)
-        close_stream(&audio_st);
-    /* Close the output file. */
-    if (!fmt) {
-        if (!(fmt->flags & AVFMT_NOFILE))
-            avio_closep(&oc->pb);
-    }
-    /* free the stream */
-    if (oc)
-        avformat_free_context(oc);
-    /* free the audio frame */
-    if (pRawBuff)
-        av_free(pRawBuff);
-    if (pConvertBuff)
-        av_free(pConvertBuff);
+    if(m_bIsPushing)
+    {
+        //    if (oc != nullptr)
+//        av_write_trailer(oc);
+        /* Close each codec. */
+//        if(opt)
+//        {
+//            av_dict_free(&opt);
+//        }
+        if (have_video)
+            close_stream(&video_st);
+        if (have_audio)
+            close_stream(&audio_st);
+        /* Close the output file. */
+        if (!fmt) {
+            if (!(fmt->flags & AVFMT_NOFILE))
+                avio_closep(&oc->pb);
+        }
+        /* free the stream */
+        if (oc)
+            avformat_free_context(oc);
+        /* free the audio frame */
+        if (pRawBuff)
+            av_free(pRawBuff);
+        if (pConvertBuff)
+            av_free(pConvertBuff);
 
-    if (m_bIsPushing) {
-        SetPushState(false);
+        if (m_bIsPushing) {
+            SetPushState(false);
+        }
     }
-
 }
 
-int CRtmpStream::Init(const char *filename)
+int CRtmpStream::Init(const char *pFilename)
 {
     int ret = 0;
-    if(filename == nullptr)
+    if(pFilename == nullptr)
     {
         return -1;
     }
-    m_sUrl = filename;
+    m_sUrl = pFilename;
 
     av_register_all();
     avformat_network_init();
 
     /* allocate the output media context */
-    avformat_alloc_output_context2(&oc, NULL, "flv", filename);
+    avformat_alloc_output_context2(&oc, NULL, "flv", pFilename);
     if (!oc) {
         LOG_ERROR << "CRtmpStream::Init::avformat_alloc_output_context2-->无法从文件扩展名推断输出格式";
         return -1;
     }
+//    oc->probesize = 5120;
+//    oc->max_analyze_duration = 10240;
 
     fmt = oc->oformat;
 
@@ -119,14 +127,14 @@ int CRtmpStream::Init(const char *filename)
         }
     }
 
-    av_dump_format(oc, 0, filename, 1);
+    av_dump_format(oc, 0, pFilename, 1);
 
     /* open the output file, if needed */
     if (!(fmt->flags & AVFMT_NOFILE)) {
-        ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE);
+        ret = avio_open(&oc->pb, pFilename, AVIO_FLAG_WRITE);
         if (ret < 0) {
-            printf("Could not open '%s'\n", filename);
-            LOG_ERROR << "CRtmpStream::Init::avio_open-->打开URL失败-->URL["<<filename<<"]";
+            printf("Could not open '%s'\n", pFilename);
+            LOG_ERROR << "CRtmpStream::Init::avio_open-->打开URL失败-->URL["<<pFilename<<"]";
             return -1;
         }
     }
@@ -135,8 +143,11 @@ int CRtmpStream::Init(const char *filename)
     ret = avformat_write_header(oc, &opt);
     if (ret < 0) {
         LOG_ERROR << "CRtmpStream::Init::avformat_write_header-->打开输出文件发生错误";
+//        av_dict_free(&opt);
         return -1;
     }
+
+//    av_dict_free(&opt);
     m_bIsPushing = true;
     return 0;
 }
@@ -195,7 +206,6 @@ int CRtmpStream::add_stream(OutputStream *ost, AVCodec **codec, enum AVCodecID c
         return -1;
     }
     ost->enc = c;
-
     switch ((*codec)->type) {
         case AVMEDIA_TYPE_AUDIO:
             c->codec_id = codec_id;
@@ -215,19 +225,76 @@ int CRtmpStream::add_stream(OutputStream *ost, AVCodec **codec, enum AVCodecID c
             break;
 
         case AVMEDIA_TYPE_VIDEO:
+//            c->flags |= AV_CODEC_FLAG_QSCALE;
+//            c->bit_rate = 4000000;
+//            c->rc_min_rate = 4000000;
+//            c->rc_max_rate = 4000000;
+//            c->bit_rate_tolerance = 4000000;
+//            c->time_base.den = 25;
+//            c->time_base.num = 1;
+//            c->width = 640;
+//            c->height = 480;
+//            c->gop_size = 12;
+//            c->max_b_frames = 128;
+//            c->thread_count = 4;
+//            c->pix_fmt = AV_PIX_FMT_YUV420P;
+//            c->codec_id = AV_CODEC_ID_H264;
+//            c->codec_type = AVMEDIA_TYPE_VIDEO;
+//            av_opt_set(c->priv_data, "b-pyramid", "none", 0);
+//            av_opt_set(c->priv_data, "preset", "superfast", 0);
+//            av_opt_set(c->priv_data, "tune", "zerolatency", 0);
+
+//            c->codec_id = codec_id;
+//            c->codec_type = AVMEDIA_TYPE_VIDEO;
+//            c->pix_fmt = AV_PIX_FMT_YUV420P;
+//            c->bit_rate = 40*1000;
+//            c->width = 640;//1280;
+//            c->height = 480;//720;
+//            v_time_base = { 1, 25 };
+//            ost->st->time_base = v_time_base;
+//            c->time_base = AVRational({1, 50});//ost->st->time_base;
+//            c->codec_tag = 0;
+
             c->codec_id = codec_id;
             c->codec_type = AVMEDIA_TYPE_VIDEO;
             c->pix_fmt = AV_PIX_FMT_YUV420P;
-            c->bit_rate = 400000;
-            c->width = 1280;
-            c->height = 720;
-            v_time_base = { 1, 50 };
+            c->bit_rate = 250000;
+            c->width = 640;
+            c->height = 480;
+            v_time_base = { 1, 25 };
             ost->st->time_base = v_time_base;
             c->time_base = ost->st->time_base;
             c->codec_tag = 0;
 
-//            c->rc_buffer_size = 20000;
+//            c->codec_id = codec_id;
+//            c->codec_type = AVMEDIA_TYPE_VIDEO;
+//            c->pix_fmt = AV_PIX_FMT_YUV420P;
+//            c->bit_rate = 40*1000;
+//            c->rc_min_rate = 20*1000;
+//            c->rc_max_rate = 80*1000;
+//            c->rc_buffer_size = 200000;
+//            c->bit_rate_tolerance = 40000;
+//            c->rc_initial_buffer_occupancy = c->rc_buffer_size*3/4;
+//            c->rc_buffer_aggressivity= (float)1.0;
+//            c->rc_initial_cplx= 0.5;
+//            c->flags |= CODEC_FLAG_QSCALE;
 
+
+//            c->width = 640;
+//            c->height = 480;
+//            v_time_base = { 1, 25 };
+//            ost->st->time_base = v_time_base;
+//            c->time_base.den = 30;
+//            c->time_base = (AVRational){1,25};
+//            c->time_base.num = 1;
+//            c->codec_tag = 0;
+
+//            c->gop_size = 250;
+//            c->pre_me = 2;
+//            c->qmin = 10;
+//            c->qmax = 50;
+//            c->qblur = 0.0;
+//            c->me_pre_cmp = 2;
             break;
 
         default:
@@ -396,6 +463,8 @@ int CRtmpStream::open_video(AVCodec *codec, OutputStream *ost, AVDictionary *opt
     AVCodecContext *c = ost->enc;
 
     av_dict_copy(&opt, opt_arg, 0);
+    av_dict_set(&opt, "probesize", "4096", 0);
+    av_dict_set(&opt, "max_analyze_duration", "500", 0);
     /* open the codec */
     ret = avcodec_open2(c, codec, &opt);
     av_dict_free(&opt);
@@ -516,4 +585,28 @@ bool CRtmpStream::GetPushState() const
 std::string CRtmpStream::GetUrl() const
 {
     return m_sUrl;
+}
+
+int CRtmpStream::GetSpsPpsFromH264(uint8_t* pBuf, int nLen)
+{
+    int i = 0;
+    for (i = 0; i < nLen; i++) {
+        if (pBuf[i+0] == 0x00
+            && pBuf[i + 1] == 0x00
+            && pBuf[i + 2] == 0x00
+            && pBuf[i + 3] == 0x01
+            && pBuf[i + 4] == 0x06) {
+            break;
+        }
+    }
+    if (i == nLen) {
+        LOG_INFO << "CRtmpStream::GetSpsPpsFromH264 错误";
+        return 0;
+    }
+
+    printf("h264(i=%d):", i);
+    for (int j = 0; j < i; j++) {
+        printf("%x ", pBuf[j]);
+    }
+    return i;
 }

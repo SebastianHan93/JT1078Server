@@ -26,10 +26,12 @@ public:
     CRtmpStream();
     virtual ~CRtmpStream();
 
-    int Init(const char *filename);
+    int Init(const char *pFilename);
     int WriteData(AVMediaType datatype, char *data, int datalen);
     bool GetPushState() const;
     std::string GetUrl() const;
+
+    static int GetSpsPpsFromH264(uint8_t* pBuf, int nLen);
 
 private:
     void SetPushState(bool bIsPush);
@@ -47,7 +49,6 @@ private:
 
     bool isIdrFrame2(uint8_t *buf, int len);
     bool isIdrFrame1(uint8_t *buf, int size);
-
 private:
     OutputStream video_st, audio_st;
     AVOutputFormat *fmt;

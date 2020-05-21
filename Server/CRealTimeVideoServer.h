@@ -61,7 +61,7 @@ private:
     typedef std::shared_ptr<CURLManager> SHARED_URL_MANAGER_PTR;
     struct Entry:public muduo::copyable
     {
-        explicit Entry(const WEAK_TCP_CONNECTION_PTR& iWeakConn,CRealTimeVideoServer * iServer);
+        explicit Entry(const WEAK_TCP_CONNECTION_PTR& iWeakConn,CRealTimeVideoServer * pServer);
         ~Entry();
 
         std::string EscapeURL(const std::string &sURL);
@@ -70,7 +70,8 @@ private:
         short int HexChar2Dec(char c);
         bool GetInfoFromRedis();
         std::string GetURL();
-
+        bool InitOnRedisState();
+        bool CloseOnRedisState();
         WEAK_TCP_CONNECTION_PTR m_iWeakConn;
         CDecoder m_iWeakDecoder;
         REDIS_INFO m_iRedisInfo;

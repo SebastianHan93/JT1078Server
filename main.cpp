@@ -42,13 +42,13 @@ int main() {
 
 
 //    SetLogging("JT1078Server.log", true,Logger::LogLevel::DEBUG);
-    SetLogging("JT1078Server.log", true, static_cast<muduo::Logger::LogLevel>(pConf->GetIntDefault("LogLevel", 1)));
-
-    EventLoop loop;
-    int LivePort = pConf->GetIntDefault("LiveListenPort", 20002);;
-    InetAddress iLiveListenAddr(LivePort);
+//    SetLogging("JT1078Server.log", true, static_cast<muduo::Logger::LogLevel>(pConf->GetIntDefault("LogLevel", 1)));
+    int LivePort = pConf->GetIntDefault("LiveListenPort", 20002);
     int nIdleSeconds = pConf->GetIntDefault("IdleSeconds", 10);
-    CRealTimeVideoServer iVideoServer(&loop, iLiveListenAddr, nIdleSeconds, "live", 4);
+    int nThreadNum = pConf->GetIntDefault("ServerThreadNum", 8);
+    EventLoop loop;
+    InetAddress iLiveListenAddr(LivePort);
+    CRealTimeVideoServer iVideoServer(&loop, iLiveListenAddr, nIdleSeconds, "live", nThreadNum);
     iVideoServer.Start();
     loop.loop();
 

@@ -28,8 +28,11 @@ void SetLogging(const char* argv0,bool async,muduo::Logger::LogLevel level)
     {
         muduo::Logger::setOutput(AsyncOutput);
         muduo::Logger::setLogLevel(level);
+
+//
         g_asyncLog.reset(new muduo::AsyncLogging(::basename(name), kRollSize,2));
         g_asyncLog->start();
+
     }
     else
     {

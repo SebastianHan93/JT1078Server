@@ -119,3 +119,4 @@ sudo apt-get install protobuf-compiler libprotobuf-dev
 
 #将muduo头文件和库文件安装到build/release-install-cpp11/lib
 ./build.sh install 
+cat xxxooo.bin | pv -L 40k | nc 127.0.0.1 1111

@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.10)
 project(JT1078Server)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(INC_DIR /usr/include/ /usr/local/ffmpeg/include /home/hc/muduo/build/release-install-cpp11/include)
-set(LINK_DIR /usr/lib/lib/ /usr/local/ffmpeg/lib /home/hc/muduo/build/release-install-cpp11/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
+set(INC_DIR /usr/include/ /usr/local/ffmpeg/include)
+set(LINK_DIR /usr/lib/lib/ /usr/local/ffmpeg/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cmake-build-debug")
 
 include_directories(${INC_DIR})
 link_directories(${LINK_DIR})
