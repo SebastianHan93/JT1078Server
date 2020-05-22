@@ -22,7 +22,6 @@ CDecoder::CDecoder()
       m_eSkip(eSkipNon),
       m_eErr(eNoError),
       m_iHeader(),
-      m_pRtmpStream(new CRtmpStream()),
       m_eCodingType(eH264),
       m_pCodec(new CCodec())
 {
@@ -31,7 +30,6 @@ CDecoder::CDecoder()
 
 CDecoder::~CDecoder()
 {
-    delete m_pRtmpStream;
     delete m_pCodec;
 }
 
@@ -359,31 +357,9 @@ void CDecoder::DumpToHex(const JT_1078_HEADER &m_iHeader) const
     printf("----------------after-----------------\n");
 }
 
-bool CDecoder::Init(std::string& sUrl)
-{
-    int nRet = m_pRtmpStream->Init(sUrl.c_str());
-    return nRet >= 0;
-}
-
-bool CDecoder::WriteData(AVMediaType iDataType, char *pData, int nDataLen)
-{
-    int nRet = m_pRtmpStream->WriteData(iDataType,pData,nDataLen);
-    return nRet >= 0;
-}
-
-bool CDecoder::GetPushState() const
-{
-    return m_pRtmpStream->GetPushState();
-}
-
 void CDecoder::SetCurReceiveStat(CURRENT_RECEIVE_STATE eState)
 {
     m_eCurrentStat = eState;
-}
-
-std::string CDecoder::GetUrl() const
-{
-    return m_pRtmpStream->GetUrl();
 }
 
 CDecoder::AV_CODING_TYPE CDecoder::GetAVCodingType() const

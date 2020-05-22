@@ -108,34 +108,24 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
             assert(eErr == JT1078_ERRS::eNoError);
             assert(eDataType != JT1078_MEDIA_DATA_TYPE::ePassthrough);
             assert(eMarke == JT1078_SUB_MARKE::eAtomic || eMarke == JT1078_SUB_MARKE::eLast);
-            if(!iCoder.GetPushState())
+
+            string sUrl;
+            if(iEntry->m_sRTMPURL.empty())
             {
-                string sUrl;
-                if(iEntry->m_sRTMPURL.empty())
-                {
-                    bSuccess = iEntry->GetInfoFromRedis();
-                    if(!bSuccess) {
-                        LOG_INFO << "获取redis数据出错,关闭连接";
-                        conn->forceClose();
-                        return;
-                    }
-
-                    sUrl = iEntry->GetURL();
-                }
-
-                bSuccess = iCoder.Init(sUrl);
+                bSuccess = iEntry->GetInfoFromRedis();
                 if(!bSuccess) {
-                    LOG_ERROR << "初始化Stream失败" << "--->" << "URL:" << sUrl;
+                    LOG_INFO << "获取redis数据出错,关闭连接";
                     conn->forceClose();
                     return;
                 }
-
-                if(!iEntry->InitOnRedisState())
-                {
-                    conn->forceClose();
-                    return;
-                }
+                sUrl = iEntry->GetURL();
             }
+            if(!iEntry->InitOnRedisState())
+            {
+                conn->forceClose();
+                return;
+            }
+
             bSuccess = WriteDataToStream(iCoder,eDataType);
             if(!bSuccess) {
                 LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio) ? "音频" : "视频") << "失败"
@@ -397,14 +387,14 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoP ||
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoB)
     {
-        b = iCoder.WriteData(AVMEDIA_TYPE_VIDEO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
+//        b = iCoder.WriteData(AVMEDIA_TYPE_VIDEO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
     }
     else// if (eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)
     {
         DECODE_RESULT &iResult = iCoder.DecodeAudio(const_cast<char *>(iCoder.GetData().data()),
                                                     iCoder.GetData().size(), iCoder.GetAVCodingType());
         if (iResult.m_eType != CCodec::AUDIO_CODING_TYPE::eUnSupport) {
-            b = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
+//            b = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
         } else {
             LOG_INFO << "不支持的音频类型!";
             b = false;

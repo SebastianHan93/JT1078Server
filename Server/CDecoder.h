@@ -10,7 +10,6 @@
 #include <memory>
 #include <muduo/net/TcpConnection.h>
 #include "JT1078Header.h"
-#include "CRtmpStream.h"
 #include "CCodec.h"
 
 class CDecoder : muduo::copyable,public std::enable_shared_from_this<CDecoder>
@@ -77,11 +76,7 @@ public:
     std::string & GetData();
     void DumpToHex(const std::string & sStr) const;
     void DumpToHex(const JT_1078_HEADER &m_iHeader) const;
-    bool Init(std::string& sUrl);
-    bool WriteData(AVMediaType iDataType, char *pData, int nDataLen);
-    bool GetPushState() const;
     void SetCurReceiveStat(CURRENT_RECEIVE_STATE eState);
-    std::string GetUrl() const;
     AV_CODING_TYPE GetAVCodingType() const;
 
     DECODE_RESULT &DecodeAudio(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType);
@@ -107,7 +102,6 @@ private:
     unsigned int  m_iRecvLen;
     JT_1078_HEADER m_iHeader;
     std::string m_sData;
-    CRtmpStream *m_pRtmpStream;
     CCodec *m_pCodec;
 
 };
