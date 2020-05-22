@@ -34,7 +34,60 @@ CHttpRequest& CHttpContext::Request()
 
 bool CHttpContext::ParseRequest(muduo::net::Buffer* pBuf, muduo::Timestamp iReceiveTime)
 {
+    bool bOk = true;
+    bool bHasMore = true;
+    while(bHasMore)
+    {
+        if(m_eState == eExpectRequestLine)
+        {
+            const char * pCrlf = pBuf->findCRLF();
+            if(pCrlf)
+            {
+                bOk = __ProcessRequestLine(pBuf->peek(),pCrlf);
+                if(bOk)
+                {
+                    m_iRequest.SetReceiveTime(iReceiveTime);
+                    pBuf->retrieveUntil(pCrlf+2);
+                    m_eState = eExpectHeaders;
+                }
+                else
+                {
+                    bHasMore = false;
+                }
+            }
+            else
+            {
+                bHasMore = false;
+            }
+        }
+        else if(m_eState == eExpectHeaders)
+        {
+            const char * pCrlf = pBuf->findCRLF();
+            if(pCrlf)
+            {
+                const char * pColon = std::find(pBuf->peek(),pCrlf,':');
+                if(pColon!=pCrlf)
+                {
+                    m_iRequest.AddHeader(pBuf->peek(),pColon,pCrlf);
+                }
+                else
+                {
+                    m_eState = eGotAll;
+                    bHasMore = false;
+                }
+                pBuf->retrieveUntil(pCrlf+2);
+            }
+            else
+            {
+                bHasMore = false;
+            }
+        }
+        else if(m_eState == eExpectBody)
+        {
 
+        }
+    }
+    return bOk;
 }
 
 bool CHttpContext::__ProcessRequestLine(const char* pBegin, const char* pEnd)

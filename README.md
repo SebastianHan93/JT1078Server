@@ -119,4 +119,5 @@ sudo apt-get install protobuf-compiler libprotobuf-dev
 
 #将muduo头文件和库文件安装到build/release-install-cpp11/lib
 ./build.sh install 
-cat xxxooo.bin | pv -L 40k | nc 127.0.0.1 1111
+cat 10352264314-2.bin | pv -L 40k | nc 192.168.0.141 20001
+ffplay rtmp://192.168.0.141:20002/live/%E4%BA%91A88888.%E8%93%9D%E8%89%B2.2.0.1

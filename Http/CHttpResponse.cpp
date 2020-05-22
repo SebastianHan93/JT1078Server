@@ -26,7 +26,7 @@ void CHttpResponse::SetCloseConnection(bool bOn)
     m_bCloseConnection = bOn;
 }
 
-bool CHttpResponse::GetCloseConnection() const
+bool CHttpResponse::IsCloseConnection() const
 {
     return m_bCloseConnection;
 }

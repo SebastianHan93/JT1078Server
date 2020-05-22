@@ -17,7 +17,7 @@ public:
     enum HTTP_STATUS_CODE
     {
         eUnkown,
-        e2000 = 200,
+        e200OK = 200,
         e301MovedPermanently = 301,
         e400BadRequest = 400,
         e404NotFound = 404,
@@ -29,7 +29,7 @@ public:
     void SetStatusCode(HTTP_STATUS_CODE eCode);
     void SetStatusMessage(const std::string& sMessage);
     void SetCloseConnection(bool bOn);
-    bool GetCloseConnection() const;
+    bool IsCloseConnection() const;
     void SetContentType(const std::string & sContentType);
     void AddHeader(const std::string & sKey,const std::string& sValue);
     void SetBody(const std::string & sBody);

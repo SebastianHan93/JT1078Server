@@ -129,7 +129,7 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
             bSuccess = WriteDataToStream(iCoder,eDataType);
             if(!bSuccess) {
                 LOG_ERROR << "写入" << ((eDataType == JT1078_MEDIA_DATA_TYPE::eAudio) ? "音频" : "视频") << "失败"
-                          << "--->" << "URL:" << iCoder.GetUrl();
+                          << "--->" << "URL:" << iEntry->GetURL();
                 conn->forceClose();
                 return;
             }
