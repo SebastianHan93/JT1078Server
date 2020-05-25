@@ -83,8 +83,6 @@ int CRtmpStream::Init(const char *pFilename)
         LOG_ERROR << "CRtmpStream::Init::avformat_alloc_output_context2-->无法从文件扩展名推断输出格式";
         return -1;
     }
-//    oc->probesize = 5120;
-//    oc->max_analyze_duration = 10240;
 
     fmt = oc->oformat;
 
@@ -225,76 +223,25 @@ int CRtmpStream::add_stream(OutputStream *ost, AVCodec **codec, enum AVCodecID c
             break;
 
         case AVMEDIA_TYPE_VIDEO:
-//            c->flags |= AV_CODEC_FLAG_QSCALE;
-//            c->bit_rate = 4000000;
-//            c->rc_min_rate = 4000000;
-//            c->rc_max_rate = 4000000;
-//            c->bit_rate_tolerance = 4000000;
-//            c->time_base.den = 25;
-//            c->time_base.num = 1;
-//            c->width = 640;
-//            c->height = 480;
-//            c->gop_size = 12;
-//            c->max_b_frames = 128;
-//            c->thread_count = 4;
-//            c->pix_fmt = AV_PIX_FMT_YUV420P;
-//            c->codec_id = AV_CODEC_ID_H264;
-//            c->codec_type = AVMEDIA_TYPE_VIDEO;
-//            av_opt_set(c->priv_data, "b-pyramid", "none", 0);
-//            av_opt_set(c->priv_data, "preset", "superfast", 0);
-//            av_opt_set(c->priv_data, "tune", "zerolatency", 0);
-
-//            c->codec_id = codec_id;
-//            c->codec_type = AVMEDIA_TYPE_VIDEO;
-//            c->pix_fmt = AV_PIX_FMT_YUV420P;
-//            c->bit_rate = 40*1000;
-//            c->width = 640;//1280;
-//            c->height = 480;//720;
-//            v_time_base = { 1, 25 };
-//            ost->st->time_base = v_time_base;
-//            c->time_base = AVRational({1, 50});//ost->st->time_base;
-//            c->codec_tag = 0;
-
             c->codec_id = codec_id;
             c->codec_type = AVMEDIA_TYPE_VIDEO;
             c->pix_fmt = AV_PIX_FMT_YUV420P;
-            c->bit_rate = 250000;
-            c->width = 640;
-            c->height = 480;
+            c->bit_rate = 128*1000;
+            c->width = 352;
+            c->height = 288;
             v_time_base = { 1, 25 };
             ost->st->time_base = v_time_base;
             c->time_base = ost->st->time_base;
             c->codec_tag = 0;
-
-//            c->codec_id = codec_id;
-//            c->codec_type = AVMEDIA_TYPE_VIDEO;
-//            c->pix_fmt = AV_PIX_FMT_YUV420P;
-//            c->bit_rate = 40*1000;
-//            c->rc_min_rate = 20*1000;
-//            c->rc_max_rate = 80*1000;
-//            c->rc_buffer_size = 200000;
-//            c->bit_rate_tolerance = 40000;
-//            c->rc_initial_buffer_occupancy = c->rc_buffer_size*3/4;
-//            c->rc_buffer_aggressivity= (float)1.0;
-//            c->rc_initial_cplx= 0.5;
-//            c->flags |= CODEC_FLAG_QSCALE;
-
-
-//            c->width = 640;
-//            c->height = 480;
-//            v_time_base = { 1, 25 };
-//            ost->st->time_base = v_time_base;
-//            c->time_base.den = 30;
-//            c->time_base = (AVRational){1,25};
-//            c->time_base.num = 1;
-//            c->codec_tag = 0;
-
-//            c->gop_size = 250;
-//            c->pre_me = 2;
-//            c->qmin = 10;
-//            c->qmax = 50;
-//            c->qblur = 0.0;
-//            c->me_pre_cmp = 2;
+            c->gop_size = 12;
+            if (c->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+                /* just for testing, we also add B-frames */
+                c->max_b_frames = 2;
+            }
+            if (c->codec_id == AV_CODEC_ID_MPEG1VIDEO)
+            {
+                c->mb_decision = 2;
+            };
             break;
 
         default:
@@ -463,8 +410,6 @@ int CRtmpStream::open_video(AVCodec *codec, OutputStream *ost, AVDictionary *opt
     AVCodecContext *c = ost->enc;
 
     av_dict_copy(&opt, opt_arg, 0);
-    av_dict_set(&opt, "probesize", "4096", 0);
-    av_dict_set(&opt, "max_analyze_duration", "500", 0);
     /* open the codec */
     ret = avcodec_open2(c, codec, &opt);
     av_dict_free(&opt);
@@ -472,7 +417,6 @@ int CRtmpStream::open_video(AVCodec *codec, OutputStream *ost, AVDictionary *opt
         LOG_ERROR << "CRtmpStream::open_video::avcodec_open2-->打开视频编码器错误";
         return -1;
     }
-
     /* copy the stream parameters to the muxer */
     ret = avcodec_parameters_from_context(ost->st->codecpar, c);
     if (ret < 0) {
@@ -493,11 +437,12 @@ int CRtmpStream::write_video_frame(OutputStream *ost, char* data, int datalen)
 {
     int ret = 0;
     int isI = 0;
+    long long now = av_gettime();
     AVCodecContext *c = ost->enc;
     AVPacket pkt = { 0 };
 
     av_init_packet(&pkt);
-
+//    long long startTime = av_gettime();
     isI = isIdrFrame1((uint8_t*)data, datalen);
     pkt.flags |= isI ? AV_PKT_FLAG_KEY : 0;
     pkt.data = (uint8_t*)data;
@@ -509,6 +454,16 @@ int CRtmpStream::write_video_frame(OutputStream *ost, char* data, int datalen)
     pkt.duration = av_rescale_q(pkt.duration, ost->st->time_base, ost->st->time_base);
     pkt.pos = -1;
 
+//    if (oc->streams[pkt.stream_index]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+//    {
+//        AVRational tb = oc->streams[pkt.stream_index]->time_base;
+//        //已经过去的时间
+//        long long now = av_gettime() - startTime;
+//        long long dts = 0;
+//        dts = pkt.dts * (1000 * 1000 * r2d(tb));
+//        if (dts > now)
+//            av_usleep(dts - now);
+//    }
     ret = write_frame(oc, &c->time_base, ost->st, &pkt);
     if (ret < 0) {
         LOG_DEBUG << "CRtmpStream::write_video_frame::write_frame-->写入视频帧出错";
@@ -516,6 +471,11 @@ int CRtmpStream::write_video_frame(OutputStream *ost, char* data, int datalen)
     }
 
     return 0;
+}
+
+double CRtmpStream::r2d(AVRational r)
+{
+    return r.num == 0 || r.den == 0 ? 0. : (double)r.num / (double)r.den;
 }
 
 void CRtmpStream::close_stream(OutputStream *ost)

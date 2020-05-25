@@ -15,6 +15,9 @@ using namespace muduo;
 using namespace muduo::net;
 using std::bind;
 
+
+
+
 CRealTimeVideoServer::CRealTimeVideoServer(muduo::net::EventLoop * iLoop,
         const muduo::net::InetAddress& iListenAddr,
         int nIdleSeconds,
@@ -397,6 +400,7 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoP ||
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoB)
     {
+
         b = iCoder.WriteData(AVMEDIA_TYPE_VIDEO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
     }
     else// if (eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)

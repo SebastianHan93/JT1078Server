@@ -10,6 +10,7 @@ extern "C"
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
 #include <libswresample/swresample.h>
+#include "libavutil/time.h"
 }
 
 //#pragma comment (lib,"ffmpeg_lib/avformat.lib")

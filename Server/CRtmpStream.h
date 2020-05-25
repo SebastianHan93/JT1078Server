@@ -32,6 +32,7 @@ public:
     std::string GetUrl() const;
 
     static int GetSpsPpsFromH264(uint8_t* pBuf, int nLen);
+    static double r2d(AVRational r);
 
 private:
     void SetPushState(bool bIsPush);
