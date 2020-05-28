@@ -15,9 +15,6 @@ using namespace muduo;
 using namespace muduo::net;
 using std::bind;
 
-
-
-
 CRealTimeVideoServer::CRealTimeVideoServer(muduo::net::EventLoop * iLoop,
         const muduo::net::InetAddress& iListenAddr,
         int nIdleSeconds,
@@ -129,6 +126,13 @@ void CRealTimeVideoServer::__OnMessage(const muduo::net::TcpConnectionPtr& conn,
                 bSuccess = iCoder.Init(sUrl);
                 if(!bSuccess) {
                     LOG_ERROR << "初始化Stream失败" << "--->" << "URL:" << sUrl;
+                    conn->forceClose();
+                    return;
+                }
+
+                bSuccess = iCoder.InitAACEncoder(11025,1);
+                if(!bSuccess) {
+                    LOG_ERROR << "初始化AACEncoder失败" << "--->" << "URL:" << sUrl;
                     conn->forceClose();
                     return;
                 }
@@ -391,7 +395,7 @@ short int CRealTimeVideoServer::Entry::HexChar2Dec(char c)
 
 bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA_TYPE eDataType)//,AVMediaType iDataType, char *pData, int nDataLen)
 {
-    bool b;
+    bool bSucc = false;
     int nRet;
     JT1078_AV_CODING_TYPE eType = iCoder.GetAVCodingType();
     assert(eType!=JT1078_AV_CODING_TYPE::eUnSupport);
@@ -401,22 +405,63 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoB)
     {
 
-        b = iCoder.WriteData(AVMEDIA_TYPE_VIDEO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
+        bSucc = iCoder.WriteData(AVMEDIA_TYPE_VIDEO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
     }
     else// if (eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)
     {
-        DECODE_RESULT &iResult = iCoder.DecodeAudio(const_cast<char *>(iCoder.GetData().data()),
-                                                    iCoder.GetData().size(), iCoder.GetAVCodingType());
-        if (iResult.m_eType != CCodec::AUDIO_CODING_TYPE::eUnSupport) {
-            b = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
-        } else {
-            LOG_INFO << "不支持的音频类型!";
-            b = false;
+        DECODE_RESULT &iResult = iCoder.DecodeAudio2PCM(const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size(), iCoder.GetAVCodingType());
+        switch (iResult.m_eType)
+        {
+            case CCodec::AUDIO_CODING_TYPE::eUnSupport:
+                LOG_INFO << "不支持的音频类型!";
+                bSucc = false;
+                break;
+            case CCodec::AUDIO_CODING_TYPE::eEncodeError:
+                LOG_INFO << "编码失败!";
+                bSucc = false;
+                break;
+            default:
+                bSucc = true;
+                break;
         }
+        if(iResult.m_eType!=AUDIO_CODING_TYPE::eAAC && bSucc)
+        {
+            bSucc = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
+            AAC_DATA & aacData = iCoder.Pcm2AAC((unsigned char*)iResult.m_pOutBuf,iResult.m_nOutBufLen);
+            switch (aacData.m_eType)
+            {
+                case CCodec::AUDIO_CODING_TYPE::eUnSupport:
+                    LOG_INFO << "不支持的音频类型!";
+                    bSucc = false;
+                    break;
+                case CCodec::AUDIO_CODING_TYPE::eEncodeError:
+                    LOG_INFO << "aac编码失败!";
+                    bSucc = false;
+                    break;
+                case CCodec::AUDIO_CODING_TYPE::eAgain:
+                    LOG_DEBUG << "解码数据不够";
+                    break;
+                default:
+                    break;
+            }
+
+            if(bSucc && aacData.m_eType!=CCodec::AUDIO_CODING_TYPE::eAgain)
+            {
+                FILE * fp = fopen("/home/hc/CLionProjects/JT1078Server/pcm2aac.aac","ab+");
+                int tmp = fwrite(aacData.m_pAACBuf,aacData.m_nAACOutBufLen,1,fp);
+                if(tmp<0)
+                {
+                    LOG_INFO<<"tmp<0";
+                    exit(0);
+                }
+                fclose(fp);
+            }
+        }
+
 
     }
     iCoder.GetData().clear();
-    return b;
+    return bSucc;
 }
 
 

@@ -59,6 +59,7 @@ public:
         eG711A,
         eG711U,
         eAdpcm,
+        eAAC,
         eH264,
         eUnSupport,
     };
@@ -84,7 +85,9 @@ public:
     std::string GetUrl() const;
     AV_CODING_TYPE GetAVCodingType() const;
 
-    DECODE_RESULT &DecodeAudio(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType);
+    DECODE_RESULT &DecodeAudio2PCM(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType);
+    AAC_DATA & Pcm2AAC(unsigned char* pbPCMBuffer,int nInBufLen);
+    bool InitAACEncoder(unsigned long nSampleRate, unsigned int nChannels);
 
 public:
     static const int sm_nFirstReceiveBytes;

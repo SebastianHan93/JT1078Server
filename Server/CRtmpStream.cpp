@@ -437,7 +437,6 @@ int CRtmpStream::write_video_frame(OutputStream *ost, char* data, int datalen)
 {
     int ret = 0;
     int isI = 0;
-    long long now = av_gettime();
     AVCodecContext *c = ost->enc;
     AVPacket pkt = { 0 };
 
@@ -447,6 +446,7 @@ int CRtmpStream::write_video_frame(OutputStream *ost, char* data, int datalen)
     pkt.flags |= isI ? AV_PKT_FLAG_KEY : 0;
     pkt.data = (uint8_t*)data;
     pkt.size = datalen;
+
 
     AVRational time_base = { 1, 1000};
     pkt.pts = av_rescale_q((ptsInc++) * 2, time_base, ost->st->time_base);

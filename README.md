@@ -121,3 +121,9 @@ sudo apt-get install protobuf-compiler libprotobuf-dev
 ./build.sh install 
 cat 10352264314-2.bin | pv -L 40k | nc 192.168.0.141 20001
 rtmp://192.168.0.141:20002/live/%E4%BA%91A88888.%E8%93%9D%E8%89%B2.2.0.1
+ffplay -ar 16000 -channels 1 -f s16le -i xxx.pcm
+ffplay -f f32le -ac 1 -ar 8000 pcm2aac.aac
+
+
+#安装librtmp
+https://blog.csdn.net/jenie/article/details/106245124

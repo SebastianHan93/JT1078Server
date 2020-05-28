@@ -59,7 +59,6 @@ private:
 
     int have_video, have_audio;
     int ptsInc;
-
     int iRawLineSize;
     int iRawBuffSize;
     uint8_t *pRawBuff;

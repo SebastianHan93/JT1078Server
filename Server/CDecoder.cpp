@@ -401,6 +401,9 @@ void CDecoder::__SetAVCodingType()
         case 7:
             m_eCodingType = eG711U;
             break;
+        case 19:
+            m_eCodingType = eAAC;
+            break;
         case 26:
             m_eCodingType = eAdpcm;
             break;
@@ -413,7 +416,7 @@ void CDecoder::__SetAVCodingType()
     }
 }
 
-DECODE_RESULT &CDecoder::DecodeAudio(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType) {
+DECODE_RESULT &CDecoder::DecodeAudio2PCM(char *pInBuf, int nInBufLen, AV_CODING_TYPE eType) {
     AUDIO_CODING_TYPE eAudioType;
     switch (eType) {
         case eG711A:
@@ -425,9 +428,23 @@ DECODE_RESULT &CDecoder::DecodeAudio(char *pInBuf, int nInBufLen, AV_CODING_TYPE
         case eAdpcm:
             eAudioType = AUDIO_CODING_TYPE::eAdpcm;
             break;
+        case eAAC:
+            eAudioType = AUDIO_CODING_TYPE::eAAC;
+            break;
         default:
             eAudioType = AUDIO_CODING_TYPE::eUnSupport;
+            break;
     }
     DECODE_RESULT &iResult = m_pCodec->DecodeAudio(pInBuf, nInBufLen, eAudioType);
     return iResult;
+}
+
+AAC_DATA & CDecoder::Pcm2AAC(unsigned char* pbPCMBuffer,int nInBufLen)
+{
+    return m_pCodec->Pcm2AAC(pbPCMBuffer,nInBufLen);
+}
+
+bool CDecoder::InitAACEncoder(unsigned long nSampleRate, unsigned int nChannels)
+{
+    return m_pCodec->InitAACEncoder(nSampleRate,nChannels);
 }
