@@ -22,16 +22,17 @@ CDecoder::CDecoder()
       m_eSkip(eSkipNon),
       m_eErr(eNoError),
       m_iHeader(),
-      m_pRtmpStream(new CRtmpStream()),
+//      m_pRtmpStream(new CRtmpStream()),
       m_eCodingType(eH264),
-      m_pCodec(new CCodec())
+      m_pCodec(new CCodec()),
+      m_spRtmp(new CRtmp())
 {
 
 }
 
 CDecoder::~CDecoder()
 {
-    delete m_pRtmpStream;
+//    delete m_pRtmpStream;
     delete m_pCodec;
 }
 
@@ -361,19 +362,25 @@ void CDecoder::DumpToHex(const JT_1078_HEADER &m_iHeader) const
 
 bool CDecoder::Init(std::string& sUrl)
 {
-    int nRet = m_pRtmpStream->Init(sUrl.c_str());
-    return nRet >= 0;
+//    int nRet = m_pRtmpStream->Init(sUrl.c_str());
+    return m_spRtmp->Init(sUrl.c_str());
 }
+//
+//bool CDecoder::WriteData(AVMediaType iDataType, char *pData, int nDataLen)
+//{
+//    int nRet = m_pRtmpStream->WriteData(iDataType,pData,nDataLen);
+//    return nRet >= 0;
+//}
 
-bool CDecoder::WriteData(AVMediaType iDataType, char *pData, int nDataLen)
+bool CDecoder::WriteH264(unsigned char *pData, int nDatalen)
 {
-    int nRet = m_pRtmpStream->WriteData(iDataType,pData,nDataLen);
-    return nRet >= 0;
+    return m_spRtmp->WriteH264(pData,nDatalen);
 }
 
 bool CDecoder::GetPushState() const
 {
-    return m_pRtmpStream->GetPushState();
+//    return m_pRtmpStream->GetPushState();
+    return m_spRtmp->GetPushState();
 }
 
 void CDecoder::SetCurReceiveStat(CURRENT_RECEIVE_STATE eState)
@@ -383,7 +390,8 @@ void CDecoder::SetCurReceiveStat(CURRENT_RECEIVE_STATE eState)
 
 std::string CDecoder::GetUrl() const
 {
-    return m_pRtmpStream->GetUrl();
+//    return m_pRtmpStream->GetUrl();
+    return m_spRtmp->GetUrl();
 }
 
 CDecoder::AV_CODING_TYPE CDecoder::GetAVCodingType() const

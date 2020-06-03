@@ -12,6 +12,7 @@
 #include "JT1078Header.h"
 #include "CRtmpStream.h"
 #include "CCodec.h"
+#include "../Stream/CRtmp.h"
 
 class CDecoder : muduo::copyable,public std::enable_shared_from_this<CDecoder>
 {
@@ -67,6 +68,7 @@ public:
     ~CDecoder();
 
 public:
+    typedef std::shared_ptr<CRtmp> SHARED_CRTMP_PTR;
     bool Decode(muduo::net::Buffer* buf, muduo::Timestamp receiveTime);
     bool DecodeHeader(muduo::net::Buffer* buf, muduo::Timestamp receiveTime);
     void DecodeBody(muduo::net::Buffer* buf, muduo::Timestamp receiveTime);
@@ -79,7 +81,8 @@ public:
     void DumpToHex(const std::string & sStr) const;
     void DumpToHex(const JT_1078_HEADER &m_iHeader) const;
     bool Init(std::string& sUrl);
-    bool WriteData(AVMediaType iDataType, char *pData, int nDataLen);
+//    bool WriteData(AVMediaType iDataType, char *pData, int nDataLen);
+    bool WriteH264(unsigned char *pData, int nDatalen);
     bool GetPushState() const;
     void SetCurReceiveStat(CURRENT_RECEIVE_STATE eState);
     std::string GetUrl() const;
@@ -110,7 +113,8 @@ private:
     unsigned int  m_iRecvLen;
     JT_1078_HEADER m_iHeader;
     std::string m_sData;
-    CRtmpStream *m_pRtmpStream;
+//    CRtmpStream *m_pRtmpStream;
+    SHARED_CRTMP_PTR m_spRtmp;
     CCodec *m_pCodec;
 
 };

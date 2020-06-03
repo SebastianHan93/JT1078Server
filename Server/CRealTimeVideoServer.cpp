@@ -405,7 +405,9 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoB)
     {
 
-        bSucc = iCoder.WriteData(AVMEDIA_TYPE_VIDEO, const_cast<char *>(iCoder.GetData().data()),iCoder.GetData().size());
+        bSucc = iCoder.WriteH264((unsigned char *)iCoder.GetData().data(),iCoder.GetData().size());
+        if(!bSucc)
+            return false;
     }
     else// if (eDataType == JT1078_MEDIA_DATA_TYPE::eAudio)
     {
@@ -426,7 +428,7 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
         }
         if(iResult.m_eType!=AUDIO_CODING_TYPE::eAAC && bSucc)
         {
-            bSucc = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
+//            bSucc = iCoder.WriteData(AVMEDIA_TYPE_AUDIO, iResult.m_pOutBuf, iResult.m_nOutBufLen);
             AAC_DATA & aacData = iCoder.Pcm2AAC((unsigned char*)iResult.m_pOutBuf,iResult.m_nOutBufLen);
             switch (aacData.m_eType)
             {
@@ -445,17 +447,17 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
                     break;
             }
 
-            if(bSucc && aacData.m_eType!=CCodec::AUDIO_CODING_TYPE::eAgain)
-            {
-                FILE * fp = fopen("/home/hc/CLionProjects/JT1078Server/pcm2aac.aac","ab+");
-                int tmp = fwrite(aacData.m_pAACBuf,aacData.m_nAACOutBufLen,1,fp);
-                if(tmp<0)
-                {
-                    LOG_INFO<<"tmp<0";
-                    exit(0);
-                }
-                fclose(fp);
-            }
+//            if(bSucc && aacData.m_eType!=CCodec::AUDIO_CODING_TYPE::eAgain)
+//            {
+//                FILE * fp = fopen("/home/hc/CLionProjects/JT1078Server/pcm2aac.aac","ab+");
+//                int tmp = fwrite(aacData.m_pAACBuf,aacData.m_nAACOutBufLen,1,fp);
+//                if(tmp<0)
+//                {
+//                    LOG_INFO<<"tmp<0";
+//                    exit(0);
+//                }
+//                fclose(fp);
+//            }
         }
 
 

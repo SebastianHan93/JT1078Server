@@ -1,6 +1,7 @@
 //
 // Created by hc on 2020/5/27.
 //
+//https://zhuanlan.zhihu.com/p/28722048
 
 #ifndef JT1078SERVER_FLV_H
 #define JT1078SERVER_FLV_H
@@ -51,6 +52,24 @@ namespace cnvt
     }FLV_HEADER;
 #pragma pack()
 
+#pragma pack (1)
+    typedef struct
+    {
+        u_int8_t m_ui8ConfigurationVersion;             //版本号,1
+        u_int8_t m_ui8AVCProfileIndication;             //SPS[1]
+        u_int8_t m_ui8ProfileCompatibility;             //SPS[2]
+        u_int8_t m_ui8AVCLevelIndication;               //SPS[3]
+        u_int8_t m_ub6Reserved1:6;                      //111111
+        u_int8_t m_ub2LengthSizeMinusOne:2;              //NALUnitLength-1,一般为3
+        u_int8_t m_ub6Reserved2:3;                      //111
+        u_int8_t m_ui5NumOfSequenceParameterSets:5;     //SPS个数,一般为1
+        u_int8_t * m_upSequenceParameterSetNALUnit;    //sps_size(16bits) + sps(UI8[sps_size])
+        u_int8_t m_ui8NumOfPictureParameterSets;             //PPS个数,一般为1
+        u_int8_t * m_upPictureParameterSetNALUnits;     //pps_size(16bits) + pps(ui8[pps_size])
+    }AVC_DECODER_CONFIGURATION_RECORD;
+#pragma pack()
+
+#pragma pack (1)
     typedef struct
     {
         uint8_t m_ub4SoundFormat:4;
@@ -59,12 +78,17 @@ namespace cnvt
         uint8_t m_ub1SoundType:1;
         uint8_t m_ui8AACPacketType;
     }AUDIO_TAG_HEADER;
+#pragma pack()
 
+#pragma pack (1)
     typedef struct
     {
-
+        uint8_t m_ub4FrameType:4;
+        uint8_t m_ub4CodecID:4;
+        uint8_t m_ui8AVCPacketType;
+        int8_t  m_si24CompositionTime[3];
     }VIDEO_TAG_HEADER;
-
+#pragma pack()
 
 #pragma pack (1)
     typedef struct
@@ -78,6 +102,16 @@ namespace cnvt
         uint8_t     m_ui24StreamID[3];
     }FLV_TAG_HEADER;
 #pragma pack()
+
+    typedef struct
+    {
+        uint8_t m_ub5AudioObjectType:5;
+        uint8_t m_ub4SamplingFrequencyIndex:4;
+        uint8_t m_ub4ChannelConfiguration:4;
+        uint8_t m_ub1FrameLengthFlag:1;
+        uint8_t m_ub1DependsOnCoreCoder:1;
+        uint8_t m_ub1ExtensionFlag:1;
+    }AUDIO_SPECIFIC_CONFIG;
 
     class Flv : muduo::noncopyable
     {
@@ -111,8 +145,13 @@ namespace cnvt
 
     private:
         bool m_bWriteAVCSeqHeader;
+        char * m_pSPSNU;
+        char * m_pPPSNU;
         unsigned char * m_pSPS;
         unsigned char * m_pPPS;
+
+        int m_nSPSNULength;
+        int m_nPPSNULength;
         int m_nSPSSize;
         int m_nPPSSize;
         int m_nStreamID;
@@ -134,6 +173,8 @@ namespace cnvt
         FLV_HEADER m_iFlvHeader;
         FLV_TAG_HEADER m_iFlvTagHeader;
         AUDIO_TAG_HEADER m_iAudioTagHeader;
+        VIDEO_TAG_HEADER m_iVideoTagHeader;
+        AVC_DECODER_CONFIGURATION_RECORD m_iAVCC;
     };
 }
 
