@@ -10,7 +10,6 @@
 #include <memory>
 #include <muduo/net/TcpConnection.h>
 #include "JT1078Header.h"
-#include "CRtmpStream.h"
 #include "CCodec.h"
 #include "../Stream/CRtmp.h"
 
@@ -113,7 +112,6 @@ private:
     unsigned int  m_iRecvLen;
     JT_1078_HEADER m_iHeader;
     std::string m_sData;
-//    CRtmpStream *m_pRtmpStream;
     SHARED_CRTMP_PTR m_spRtmp;
     CCodec *m_pCodec;
 

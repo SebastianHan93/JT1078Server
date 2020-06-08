@@ -4,7 +4,6 @@
 
 #include "CRtmp.h"
 #include "../../../muduo/build/release-install-cpp11/include/muduo/base/Logging.h"
-#include <librtmp/rtmp_sys.h>
 
 CRtmp::CRtmp()
 {
@@ -34,6 +33,7 @@ CRtmp::CRtmp()
 
 CRtmp::~CRtmp()
 {
+    LOG_DEBUG << "CRtmp::~CRtmp()";
     if(m_iRtmp!=nullptr)
     {
         RTMP_Close(m_iRtmp);
@@ -105,6 +105,7 @@ bool CRtmp::Init(std::string sUrl)
 //        sleep(1);
 //        return true;
 //    }
+    return true;
 }
 
 bool CRtmp::WriteH264(unsigned char *pData, int nDatalen)
@@ -128,14 +129,24 @@ bool CRtmp::WriteH264(unsigned char *pData, int nDatalen)
             break;
         int nNaluType = pNalu[4] & 0x1f;
 
-        if(m_pSPS == nullptr && nNaluType == 0x07)
+        if(nNaluType == 0x07)
         {
+            if(m_pSPS != nullptr)
+            {
+                delete[] m_pSPS;
+                m_pSPS = nullptr;
+            }
             m_pSPS = new unsigned char[nNaluSize];
             m_nSPSSize = nNaluSize;
             memcpy(m_pSPS,pNalu,nNaluSize);
         }
-        else if(m_pPPS == nullptr && nNaluType == 0x08)
+        else if(nNaluType == 0x08)
         {
+            if(m_pPPS != nullptr)
+            {
+                delete[] m_pPPS;
+                m_pPPS = nullptr;
+            }
             m_pPPS = new unsigned char[nNaluSize];
             m_nPPSSize = nNaluSize;
             memcpy(m_pPPS,pNalu,nNaluSize);

@@ -404,6 +404,9 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoP ||
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoB)
     {
+//        FILE * fp = fopen("/home/hc/CLionProjects/JT1078Server/xxx.h264","ab+");
+//        fwrite(iCoder.GetData().data(),iCoder.GetData().size(),1,fp);
+//        fclose(fp);
 
         bSucc = iCoder.WriteH264((unsigned char *)iCoder.GetData().data(),iCoder.GetData().size());
         if(!bSucc)
