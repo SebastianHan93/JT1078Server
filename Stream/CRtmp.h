@@ -18,21 +18,21 @@ public:
 
 public:
     typedef enum{
-        NAL_SLICE = 0x01,
-        NAL_SLICE_DPA = 0x02,
-        NAL_SLICE_DPB = 0x03,
-        NAL_SLICE_DPC = 0x04,
-        NAL_SLICE_IDR = 0x05,
-        NAL_SEI = 0x06,
-        NAL_SPS = 0x07,
-        NAL_PPS = 0x08,
-        NAL_AUD = 0x09,
-        NAL_FILLER = 0x12,
+        NAL_SLICE = 1,
+        NAL_SLICE_DPA = 2,
+        NAL_SLICE_DPB = 3,
+        NAL_SLICE_DPC = 4,
+        NAL_SLICE_IDR = 5,
+        NAL_SEI = 6,
+        NAL_SPS = 7,
+        NAL_PPS = 8,
+        NAL_AUD = 9,
+        NAL_FILLER = 12,
     }NALU_TYPE;
 
 public:
     bool Init(std::string sUrl);
-    bool WriteH264(unsigned char *pData, int nDatalen);
+    bool WriteH264(unsigned char *pData, int nDatalen,uint64_t nTimestamp);
     int GetOneNalu(unsigned char *pBufIn, int nInSize, unsigned char *pNalu, int &nNaluSize);
     int IsVideojjSEI(unsigned char *pNalu, int nNaluSize);
     int GetOneAACFrame(unsigned char *pBufIn, int nInSize, unsigned char *pAACFrame, int &nAACFrameSize);
@@ -40,8 +40,8 @@ public:
     std::string GetUrl() const;
 private:
     unsigned long __GetTickCount();
-    int __SendVideoSpsPps();
-    int __SendRtmpH264(unsigned char *pData, int nDatalen);
+    int __SendVideoSpsPps(uint64_t nTimestamp);
+    int __SendRtmpH264(unsigned char *pData, int nDatalen,uint64_t nTimestamp);
 private:
 
     RTMP * m_iRtmp;
@@ -53,6 +53,7 @@ private:
     std::string m_sUrl;
 
     bool m_bIsPushing;
+    bool m_bStartTimestamp;
     bool m_bNextIsKey;
     bool m_bWriteAVCSeq;
     bool m_bWriteAACSeq;
@@ -61,10 +62,10 @@ private:
     int m_nSPSSize;
     int m_nPPSSize;
 
-    uint32_t m_nStartTime;
-    uint32_t m_nNowTime;
-    uint32_t m_nPreFrameTime;
-    uint32_t m_nLastTime;
+    uint64_t m_nStartTime;
+    uint64_t m_nNowTime;
+    uint64_t m_nPreFrameTime;
+    uint64_t m_nLastTime;
 };
 
 

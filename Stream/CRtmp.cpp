@@ -18,6 +18,7 @@ CRtmp::CRtmp()
     m_bNextIsKey = false;
     m_bWriteAVCSeq = false;
     m_bWriteAACSeq = false;
+    m_bStartTimestamp = false;
     std::string m_sUrl = "";
 
 
@@ -69,8 +70,11 @@ bool CRtmp::Init(std::string sUrl)
         LOG_ERROR << "CRtmp::Init-->m_sUrl为空！";
         return false;
     }
+    LOG_DEBUG << m_sUrl.data();
     m_sUrl = sUrl;
-    if(!RTMP_SetupURL(m_iRtmp, const_cast<char*>(m_sUrl.data())))
+
+//    if(!RTMP_SetupURL(m_iRtmp, const_cast<char*>(m_sUrl.data())))
+    if(!RTMP_SetupURL(m_iRtmp, "rtmp://192.168.0.143:20002/live/123"))
     {
         LOG_ERROR << "CRtmp::Init-->RTMP_SetupURL错误！";
         return false;
@@ -97,6 +101,7 @@ bool CRtmp::Init(std::string sUrl)
 //    pPacket->m_nChannel = 0x04;
 //    pPacket->m_nInfoField2 = m_iRtmp->m_stream_id;
 //    m_nStartTime = RTMP_GetTime();
+//    m_nStartTime = __GetTickCount();
     m_bIsPushing = true;
     LOG_DEBUG << "CRtmp::Init-->初始化完毕";
     //    m_nNowTime = RTMP_GetTime();
@@ -108,12 +113,17 @@ bool CRtmp::Init(std::string sUrl)
     return true;
 }
 
-bool CRtmp::WriteH264(unsigned char *pData, int nDatalen)
+bool CRtmp::WriteH264(unsigned char *pData, int nDatalen,uint64_t nTimestamp)
 {
     int nOffset = 0;
     int nCount = 0;
     int nNaluSize = 0;
-
+    if(!m_bStartTimestamp)
+    {
+        m_nStartTime = nTimestamp;
+        m_nPreFrameTime = nTimestamp;
+        m_bStartTimestamp = true;
+    }
     if(!RTMP_IsConnected(m_iRtmp))
     {
         LOG_ERROR << "CRtmp::RTMP_IsConnected-->错误！";
@@ -122,7 +132,6 @@ bool CRtmp::WriteH264(unsigned char *pData, int nDatalen)
 
     unsigned char * pNalu = nullptr;
     pNalu = new unsigned char[nDatalen];
-    m_nStartTime = __GetTickCount();
     while(1)
     {
         if(GetOneNalu(pData+nOffset,nDatalen-nOffset,pNalu,nNaluSize) == 0)
@@ -150,14 +159,14 @@ bool CRtmp::WriteH264(unsigned char *pData, int nDatalen)
             m_pPPS = new unsigned char[nNaluSize];
             m_nPPSSize = nNaluSize;
             memcpy(m_pPPS,pNalu,nNaluSize);
-            if(__SendVideoSpsPps() == -1)
+            if(__SendVideoSpsPps(nTimestamp) == -1)
             {
                 return false;
             }
         }
         else
         {
-            if(__SendRtmpH264(pNalu,nNaluSize) == -1)
+            if(__SendRtmpH264(pNalu,nNaluSize,nTimestamp) == -1)
             {
                 return false;
             }
@@ -175,11 +184,11 @@ bool CRtmp::WriteH264(unsigned char *pData, int nDatalen)
         nOffset += nNaluSize;
         nCount++;
     }
-
+    m_nPreFrameTime = nTimestamp;
     return true;
 }
 
-int CRtmp::__SendVideoSpsPps()
+int CRtmp::__SendVideoSpsPps(uint64_t nTimestamp)
 {
     unsigned char * pBody;
     int i;
@@ -230,7 +239,7 @@ int CRtmp::__SendVideoSpsPps()
     m_pPacket->m_nInfoField2 = m_iRtmp->m_stream_id;
 
     /*调用发送接口*/
-    if(!RTMP_SendPacket(m_iRtmp,m_pPacket,TRUE))
+    if(!RTMP_SendPacket(m_iRtmp,m_pPacket, false))
     {
         free(m_pPacket);
         LOG_ERROR << "CRtmp::__SendRtmpH264-->RTMP_SendPacket 出错！";
@@ -241,14 +250,14 @@ int CRtmp::__SendVideoSpsPps()
     return 0;
 }
 
-int CRtmp::__SendRtmpH264(unsigned char *pData, int nDatalen)
+int CRtmp::__SendRtmpH264(unsigned char *pData, int nDatalen,uint64_t nTimestamp)
 {
     int nType;
     long nTimeOffset;
     unsigned char * pBody;
     /*start_time为开始直播时的时间戳*/
-    nTimeOffset = __GetTickCount() - m_nStartTime;
 
+    nTimeOffset = nTimestamp - m_nStartTime;
     /*去掉帧界定符*/
     if (pData[2] == 0x00) { /*00 00 00 01*/
         pData += 4;
@@ -257,6 +266,7 @@ int CRtmp::__SendRtmpH264(unsigned char *pData, int nDatalen)
         pData += 3;
         nDatalen -= 3;
     }
+
     nType = pData[0]&0x1f;
 
     m_pPacket = (RTMPPacket *)malloc(RTMP_HEAD_SIZE+nDatalen+9);
@@ -271,8 +281,16 @@ int CRtmp::__SendRtmpH264(unsigned char *pData, int nDatalen)
 
     /*key frame*/
     pBody[0] = 0x27;
-    if (nType == NAL_SLICE_IDR) {
+
+    if (nType == 5) {
         pBody[0] = 0x17;
+    }
+
+    if(nType == 6)
+    {
+        free(m_pPacket);
+        m_pPacket = nullptr;
+        return 0;
     }
 
     pBody[1] = 0x01;   /*nal unit*/
@@ -296,13 +314,15 @@ int CRtmp::__SendRtmpH264(unsigned char *pData, int nDatalen)
     m_pPacket->m_nTimeStamp = nTimeOffset;
 
     /*调用发送接口*/
-    if(!RTMP_SendPacket(m_iRtmp,m_pPacket,TRUE))
+    if(!RTMP_SendPacket(m_iRtmp,m_pPacket, false))
     {
         free(m_pPacket);
         LOG_ERROR << "CRtmp::__SendRtmpH264-->RTMP_SendPacket 出错！";
         return -1;
     }
-
+    FILE * fp = fopen("/home/hc/CLionProjects/JT1078Server/xxx.flv","ab+");
+    fwrite(m_pPacket->m_body,m_pPacket->m_nBodySize,1,fp);
+    fclose(fp);
     free(m_pPacket);
     m_pPacket = nullptr;
     return 0;

@@ -399,16 +399,13 @@ bool CRealTimeVideoServer::WriteDataToStream(CDecoder & iCoder,JT1078_MEDIA_DATA
     int nRet;
     JT1078_AV_CODING_TYPE eType = iCoder.GetAVCodingType();
     assert(eType!=JT1078_AV_CODING_TYPE::eUnSupport);
+    uint64_t nTimestamp = iCoder.GetHeader().Bt8timeStamp;
 
     if(eDataType == JT1078_MEDIA_DATA_TYPE::eVideoI ||
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoP ||
        eDataType == JT1078_MEDIA_DATA_TYPE::eVideoB)
     {
-//        FILE * fp = fopen("/home/hc/CLionProjects/JT1078Server/xxx.h264","ab+");
-//        fwrite(iCoder.GetData().data(),iCoder.GetData().size(),1,fp);
-//        fclose(fp);
-
-        bSucc = iCoder.WriteH264((unsigned char *)iCoder.GetData().data(),iCoder.GetData().size());
+        bSucc = iCoder.WriteH264((unsigned char *)iCoder.GetData().data(),iCoder.GetData().size(),nTimestamp);
         if(!bSucc)
             return false;
     }

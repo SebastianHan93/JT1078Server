@@ -372,9 +372,9 @@ bool CDecoder::Init(std::string& sUrl)
 //    return nRet >= 0;
 //}
 
-bool CDecoder::WriteH264(unsigned char *pData, int nDatalen)
+bool CDecoder::WriteH264(unsigned char *pData, int nDatalen,uint64_t nTimestamp)
 {
-    return m_spRtmp->WriteH264(pData,nDatalen);
+    return m_spRtmp->WriteH264(pData,nDatalen,nTimestamp);
 }
 
 bool CDecoder::GetPushState() const

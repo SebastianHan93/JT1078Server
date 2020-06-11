@@ -81,7 +81,7 @@ public:
     void DumpToHex(const JT_1078_HEADER &m_iHeader) const;
     bool Init(std::string& sUrl);
 //    bool WriteData(AVMediaType iDataType, char *pData, int nDataLen);
-    bool WriteH264(unsigned char *pData, int nDatalen);
+    bool WriteH264(unsigned char *pData, int nDatalen,uint64_t nTimestamp);
     bool GetPushState() const;
     void SetCurReceiveStat(CURRENT_RECEIVE_STATE eState);
     std::string GetUrl() const;
